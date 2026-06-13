@@ -6,6 +6,7 @@ $Targets = @(
     "dist\NetworkControlWebApp.exe",
     "dist\NetworkControlWebAppSetup.exe",
     "README.md",
+    "README_TH.md",
     "requirements.txt",
     "requirements-build.txt",
     "build\NetworkControlWebApp.spec",

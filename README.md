@@ -1,5 +1,7 @@
 # Network Control WebApp
 
+[ภาษาไทย](README_TH.md) | English
+
 Web-first local network control for Windows. The app runs as a visible local service with a Web UI for testing and settings.
 
 ## Quick Start
