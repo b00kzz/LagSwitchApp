@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Network Control WebApp</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="header">
+      <div>
+        <h1>Network Control WebApp</h1>
+        <p data-i18n="subtitle">Local network control service with a web test dashboard.</p>
+      </div>
+      <div class="header-tools">
+        <label class="language-select">
+          <span data-i18n="language">Language</span>
+          <select id="language">
+            <option value="th">ไทย</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+        <div class="status-pill" id="adminStatus" data-i18n="checking">Checking...</div>
+      </div>
+    </header>
+
+    <section class="notice">
+      <strong>Safety notice / หมายเหตุความปลอดภัย</strong>
+      <p>This app changes local network/firewall state only after explicit user actions. Keep the Web UI, tray icon, notifications, and local <code>audit.log</code> available for review.</p>
+      <p>โปรแกรมนี้เปลี่ยนสถานะเครือข่าย/ไฟร์วอลล์เฉพาะเครื่องเมื่อผู้ใช้สั่งงานเท่านั้น ควรให้ตรวจสอบผ่าน Web UI, tray/notification และ <code>audit.log</code> ได้เสมอ</p>
+    </section>
+
+    <section class="grid summary">
+      <article>
+        <span data-i18n="service">Service</span>
+        <strong id="serviceState">-</strong>
+      </article>
+      <article>
+        <span data-i18n="networkState">Network</span>
+        <strong id="networkStateValue">-</strong>
+      </article>
+      <article>
+        <span data-i18n="hotkey">Hotkey</span>
+        <strong id="hotkeyState">-</strong>
+      </article>
+      <article>
+        <span data-i18n="adapter">Adapter</span>
+        <strong id="adapterState">-</strong>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <h2 data-i18n="testControls">Test Controls</h2>
+        <p data-i18n="testControlsHelp">These buttons use the selected adapter. Run as Administrator for real pause/restore actions.</p>
+      </div>
+      <div class="actions">
+        <button class="danger" data-action="pause" data-i18n="testPause">Test Pause</button>
+        <button data-action="restore" data-i18n="testRestore">Test Restore</button>
+        <button class="secondary" data-action="toggle" data-i18n="testToggle">Test Toggle</button>
+        <button class="secondary" data-action="show_overlay" data-i18n="showOverlay">Show Overlay</button>
+        <button class="secondary" data-action="close_overlay" data-i18n="closeOverlay">Close Overlay</button>
+        <button class="danger" data-action="shutdown" data-i18n="exitService">Exit Service</button>
+      </div>
+      <p class="result" id="lastResult" data-i18n="waitingStatus">Waiting for status...</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <h2 data-i18n="settings">Settings</h2>
+        <p data-i18n="settingsHelp">Saved changes apply to the global hotkey immediately.</p>
+      </div>
+
+      <form id="settingsForm">
+        <div class="field">
+          <label for="hotkey" data-i18n="globalHotkey">Global Hotkey</label>
+          <input id="hotkey" name="hotkey" type="text" placeholder="f8" required>
+        </div>
+
+        <div class="field">
+          <label for="mode" data-i18n="mode">Mode</label>
+          <select id="mode" name="mode">
+            <option value="toggle" data-i18n="modeToggle">Toggle: press once to pause, press again to restore</option>
+            <option value="hold" data-i18n="modeHold">Hold: hold to pause, release to restore</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="adapter" data-i18n="networkAdapter">Network Adapter</label>
+          <select id="adapter" name="adapter"></select>
+        </div>
+
+        <div class="field">
+          <label for="customAdapter" data-i18n="customAdapter">Custom Adapter Name</label>
+          <input id="customAdapter" name="customAdapter" type="text" placeholder="Optional, if not listed" data-i18n-placeholder="customAdapterPlaceholder">
+        </div>
+
+        <div class="checks">
+          <label><input id="openUiOnStart" type="checkbox"> <span data-i18n="openUiOnStart">Open Web UI on startup</span></label>
+          <label><input id="showNotifications" type="checkbox"> <span data-i18n="showNotifications">Show tray/toast notifications</span></label>
+          <label><input id="overlayEnabled" type="checkbox"> <span data-i18n="overlayStartup">Enable mini overlay on startup</span></label>
+        </div>
+
+        <div class="actions">
+          <button type="submit" data-i18n="saveSettings">Save Settings</button>
+          <button class="secondary" type="button" id="refreshButton" data-i18n="refreshAdapter">Refresh Adapter</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
