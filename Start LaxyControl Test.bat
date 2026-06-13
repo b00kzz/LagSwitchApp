@@ -39,6 +39,6 @@ if not %errorlevel%==0 (
 )
 
 echo.
-echo Starting Network Control WebApp in test mode...
+echo Starting LaxyControl in test mode...
 %PYTHON_CMD% "%APP_SCRIPT%"
 pause

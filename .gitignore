@@ -10,7 +10,8 @@ env/
 
 # Build outputs
 dist/
-build/NetworkControlWebApp/
+release/
+build/LaxyControl/
 *.spec.bak
 
 # Runtime files

@@ -4,7 +4,7 @@ setlocal
 set SCRIPT_DIR=%~dp0
 set REQUIREMENTS=%SCRIPT_DIR%requirements.txt
 set BUILD_REQUIREMENTS=%SCRIPT_DIR%requirements-build.txt
-set SPEC_FILE=%SCRIPT_DIR%build\NetworkControlWebApp.spec
+set SPEC_FILE=%SCRIPT_DIR%build\LaxyControl.spec
 set CODEX_PYTHON=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe
 
 cd /d "%SCRIPT_DIR%"
@@ -75,7 +75,18 @@ if not %errorlevel%==0 (
 )
 
 echo.
+echo Preparing portable folder...
+powershell -NoProfile -File "%SCRIPT_DIR%scripts\Prepare-Portable.ps1"
+if not %errorlevel%==0 (
+    echo.
+    echo Portable folder preparation failed.
+    pause
+    exit /b 1
+)
+
+echo.
 echo Done.
-echo EXE: "%SCRIPT_DIR%dist\NetworkControlWebApp.exe"
+echo EXE: "%SCRIPT_DIR%dist\LaxyControl.exe"
+echo Portable folder: "%SCRIPT_DIR%release\LaxyControl-Portable"
 echo Runtime config and audit files will be created next to the EXE when it runs.
 pause

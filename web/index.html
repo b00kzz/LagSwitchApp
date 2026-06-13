@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Network Control WebApp</title>
+  <title>LaxyControl</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <main class="shell">
     <header class="header">
       <div>
-        <h1>Network Control WebApp</h1>
+        <h1>LaxyControl</h1>
         <p data-i18n="subtitle">Local network control service with a web test dashboard.</p>
       </div>
       <div class="header-tools">
@@ -27,8 +27,8 @@
 
     <section class="notice">
       <strong>Safety notice / หมายเหตุความปลอดภัย</strong>
-      <p>This app changes local network/firewall state only after explicit user actions. Keep the Web UI, tray icon, notifications, and local <code>audit.log</code> available for review.</p>
-      <p>โปรแกรมนี้เปลี่ยนสถานะเครือข่าย/ไฟร์วอลล์เฉพาะเครื่องเมื่อผู้ใช้สั่งงานเท่านั้น ควรให้ตรวจสอบผ่าน Web UI, tray/notification และ <code>audit.log</code> ได้เสมอ</p>
+      <p>This app changes local network/firewall state only after explicit user actions. Keep the Web UI, notifications, and local <code>audit.log</code> available for review.</p>
+      <p>โปรแกรมนี้เปลี่ยนสถานะเครือข่าย/ไฟร์วอลล์เฉพาะเครื่องเมื่อผู้ใช้สั่งงานเท่านั้น ควรให้ตรวจสอบผ่าน Web UI, notification และ <code>audit.log</code> ได้เสมอ</p>
     </section>
 
     <section class="grid summary">
@@ -98,7 +98,7 @@
 
         <div class="checks">
           <label><input id="openUiOnStart" type="checkbox"> <span data-i18n="openUiOnStart">Open Web UI on startup</span></label>
-          <label><input id="showNotifications" type="checkbox"> <span data-i18n="showNotifications">Show tray/toast notifications</span></label>
+          <label><input id="showNotifications" type="checkbox"> <span data-i18n="showNotifications">Show toast notifications</span></label>
           <label><input id="overlayEnabled" type="checkbox"> <span data-i18n="overlayStartup">Enable mini overlay on startup</span></label>
         </div>
 

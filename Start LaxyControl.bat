@@ -45,6 +45,6 @@ if not %errorlevel%==0 (
 )
 
 echo.
-echo Starting Network Control WebApp as Administrator...
+echo Starting LaxyControl as Administrator...
 %PYTHON_CMD% "%APP_SCRIPT%"
 pause

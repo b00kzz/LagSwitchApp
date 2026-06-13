@@ -3,9 +3,9 @@ import subprocess
 
 
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-FIREWALL_GROUP = "Network Control Rules"
-FIREWALL_OUT_RULE = "Network Control Pause Outbound"
-FIREWALL_IN_RULE = "Network Control Pause Inbound"
+FIREWALL_GROUP = "LaxyControl Rules"
+FIREWALL_OUT_RULE = "LaxyControl Pause Outbound"
+FIREWALL_IN_RULE = "LaxyControl Pause Inbound"
 FIREWALL_READY = False
 
 

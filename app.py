@@ -20,12 +20,12 @@ from core.settings import load_settings, save_settings
 
 HOST = "127.0.0.1"
 PORT = 8787
-MUTEX_NAME = "Local\\NetworkControlWebApp"
+MUTEX_NAME = "Local\\LaxyControl"
 ERROR_ALREADY_EXISTS = 183
 APP_DIR = app_dir()
 BUNDLE_DIR = bundle_dir()
 WEB_ROOT = BUNDLE_DIR / "web"
-APP_NAME = "Network Control"
+APP_NAME = "LaxyControl"
 AUDIT_LOG = APP_DIR / "audit.log"
 MUTEX_HANDLE = None
 
@@ -157,7 +157,7 @@ class OverlayController:
             self.root.after(0, self.root.destroy)
 
 
-class NetworkControlApp:
+class LaxyControlApp:
     def __init__(self):
         self.settings = load_settings()
         self.network_paused = False
@@ -166,7 +166,6 @@ class NetworkControlApp:
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
         self.httpd = None
-        self.tray_icon = None
         self.overlay = OverlayController(self)
         self.hotkeys = HotkeyManager(
             self.pause_network,
@@ -211,7 +210,6 @@ class NetworkControlApp:
         self.start_server()
         self.reload_hotkeys()
         self.overlay.start()
-        self.start_tray()
 
         if self.settings.get("open_ui_on_start"):
             self.open_ui()
@@ -222,31 +220,6 @@ class NetworkControlApp:
         handler = self.make_handler()
         self.httpd = ThreadingHTTPServer((HOST, PORT), handler)
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
-
-    def start_tray(self):
-        try:
-            import pystray
-            from PIL import Image, ImageDraw
-        except Exception as exc:
-            self.set_last_result(False, f"Tray unavailable: {exc}")
-            return
-
-        image = Image.new("RGB", (64, 64), "#111827")
-        draw = ImageDraw.Draw(image)
-        draw.ellipse((12, 12, 52, 52), fill="#2563eb")
-        draw.rectangle((29, 14, 35, 50), fill="#ffffff")
-
-        menu = pystray.Menu(
-            pystray.MenuItem("Open Web UI", lambda *args: self.open_ui()),
-            pystray.MenuItem("Toggle", lambda *args: self.toggle("tray")),
-            pystray.MenuItem("Pause Network", lambda *args: self.pause_network("tray")),
-            pystray.MenuItem("Restore Network", lambda *args: self.restore_network("tray")),
-            pystray.MenuItem("Show Overlay", lambda *args: self.overlay.show()),
-            pystray.MenuItem("Close Overlay", lambda *args: self.overlay.close()),
-        )
-
-        self.tray_icon = pystray.Icon(APP_NAME, image, APP_NAME, menu)
-        threading.Thread(target=self.tray_icon.run, daemon=True).start()
 
     def reload_hotkeys(self):
         ok = self.hotkeys.start(
@@ -348,11 +321,6 @@ class NetworkControlApp:
                 self.network_paused = False
         self.hotkeys.stop()
         self.overlay.stop()
-        if self.tray_icon:
-            try:
-                self.tray_icon.stop()
-            except Exception:
-                pass
         if self.httpd:
             threading.Thread(target=self.httpd.shutdown, daemon=True).start()
 
@@ -465,7 +433,7 @@ def main():
         webbrowser.open(f"http://{HOST}:{PORT}")
         return
 
-    app = NetworkControlApp()
+    app = LaxyControlApp()
 
     def handle_signal(signum, frame):
         app.shutdown()

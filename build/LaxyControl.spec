@@ -11,6 +11,7 @@ a = Analysis(
     datas=[
         (str(ROOT / "web"), "web"),
         (str(ROOT / "README.md"), "."),
+        (str(ROOT / "README_TH.md"), "."),
     ],
     hookspath=[],
     hooksconfig={},
@@ -28,7 +29,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="NetworkControlWebApp",
+    name="LaxyControl",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -43,4 +44,5 @@ exe = EXE(
     entitlements_file=None,
     version=str(ROOT / "build" / "version_info.txt"),
     manifest=str(ROOT / "build" / "app.manifest"),
+    icon=str(ROOT / "assets" / "LaxyControl.ico"),
 )

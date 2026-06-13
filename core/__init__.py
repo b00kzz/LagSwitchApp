@@ -1,1 +1,1 @@
-"""Network Control WebApp core modules."""
+"""LaxyControl core modules."""

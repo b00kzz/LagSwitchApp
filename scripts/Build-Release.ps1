@@ -13,11 +13,15 @@ Write-Host "Installing runtime requirements..."
 Write-Host "Installing build requirements..."
 & $Python -m pip install -r requirements-build.txt
 
-Write-Host "Building Network Control WebApp as a single-file executable..."
-& $Python -m PyInstaller --clean --noconfirm build\NetworkControlWebApp.spec
+Write-Host "Building LaxyControl as a single-file executable..."
+& $Python -m PyInstaller --clean --noconfirm build\LaxyControl.spec
 
 Write-Host "Generating release hashes..."
 & powershell -NoProfile -File scripts\Generate-Hashes.ps1
 
-Write-Host "Build complete: dist\NetworkControlWebApp.exe"
+Write-Host "Preparing portable folder..."
+& powershell -NoProfile -File scripts\Prepare-Portable.ps1
+
+Write-Host "Build complete: dist\LaxyControl.exe"
+Write-Host "Portable folder: release\LaxyControl-Portable"
 Write-Host "Runtime config and audit files will be created next to the executable when it runs."

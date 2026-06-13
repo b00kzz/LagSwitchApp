@@ -74,7 +74,7 @@ if (-not $PythonExe) {
     Write-Log "Python was not found."
     [System.Windows.Forms.MessageBox]::Show(
         "Python was not found. Install Python and tick Add Python to PATH.",
-        "Network Control WebApp",
+        "LaxyControl",
         "OK",
         "Error"
     ) | Out-Null
@@ -86,7 +86,7 @@ Write-Host "Using Python: $PythonExe"
 
 $check = Start-Process `
     -FilePath $PythonExe `
-    -ArgumentList @("-c", "import keyboard, pystray, PIL, win10toast") `
+    -ArgumentList @("-c", "import keyboard, win10toast") `
     -WorkingDirectory $ScriptDir `
     -Wait `
     -PassThru
@@ -104,7 +104,7 @@ if ($check.ExitCode -ne 0) {
         Write-Log "Package install failed with exit code $($pip.ExitCode)."
         [System.Windows.Forms.MessageBox]::Show(
             "Failed to install required packages. Check your internet connection and see launcher.log.",
-            "Network Control WebApp",
+            "LaxyControl",
             "OK",
             "Error"
         ) | Out-Null
@@ -113,5 +113,5 @@ if ($check.ExitCode -ne 0) {
 }
 
 Write-Log "Starting app."
-Write-Host "Starting Network Control WebApp in a visible console. Close it with the UI Exit Service button or Ctrl+C."
+Write-Host "Starting LaxyControl in a visible console. Close it with the UI Exit Service button or Ctrl+C."
 & $PythonExe $AppScript

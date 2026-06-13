@@ -1,8 +1,8 @@
 param(
-    [string]$CertificatePath = $env:NETWORK_CONTROL_CERT_PATH,
-    [string]$CertificatePassword = $env:NETWORK_CONTROL_CERT_PASSWORD,
+    [string]$CertificatePath = $env:LAXYCONTROL_CERT_PATH,
+    [string]$CertificatePassword = $env:LAXYCONTROL_CERT_PASSWORD,
     [string]$TimestampUrl = "http://timestamp.digicert.com",
-    [string]$Target = "dist\NetworkControlWebApp.exe"
+    [string]$Target = "dist\LaxyControl.exe"
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,7 +14,7 @@ if (-not (Test-Path $ResolvedTarget)) {
 }
 
 if (-not $CertificatePath) {
-    throw "Set NETWORK_CONTROL_CERT_PATH or pass -CertificatePath with your code signing certificate."
+    throw "Set LAXYCONTROL_CERT_PATH or pass -CertificatePath with your code signing certificate."
 }
 
 if (-not (Test-Path $CertificatePath)) {

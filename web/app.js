@@ -1,6 +1,6 @@
 let currentStatus = null;
 let statusTimer = null;
-let currentLanguage = localStorage.getItem("networkControlLanguage") || "th";
+let currentLanguage = localStorage.getItem("laxyControlLanguage") || "th";
 
 const el = (id) => document.getElementById(id);
 const translations = {
@@ -31,7 +31,7 @@ const translations = {
     customAdapter: "Custom Adapter Name",
     customAdapterPlaceholder: "Optional, if not listed",
     openUiOnStart: "Open Web UI on startup",
-    showNotifications: "Show tray/toast notifications",
+    showNotifications: "Show toast notifications",
     overlayStartup: "Enable mini overlay on startup",
     saveSettings: "Save Settings",
     refreshAdapter: "Refresh Adapter",
@@ -51,7 +51,7 @@ const translations = {
     confirmPause: "Pause network access now?",
     confirmRestore: "Restore network access now?",
     confirmToggle: "Toggle network state now?",
-    confirmShutdown: "Exit Network Control now?",
+    confirmShutdown: "Exit LaxyControl now?",
   },
   th: {
     subtitle: "บริการควบคุมเครือข่ายในเครื่อง พร้อมหน้าเว็บสำหรับทดสอบและตั้งค่า",
@@ -80,7 +80,7 @@ const translations = {
     customAdapter: "ชื่ออะแดปเตอร์เอง",
     customAdapterPlaceholder: "ใส่เองถ้าไม่มีในรายการ",
     openUiOnStart: "เปิด Web UI ตอนเริ่มโปรแกรม",
-    showNotifications: "แสดงการแจ้งเตือนที่ tray/toast",
+    showNotifications: "แสดงการแจ้งเตือนแบบ toast",
     overlayStartup: "เปิด mini overlay ตอนเริ่มโปรแกรม",
     saveSettings: "บันทึกการตั้งค่า",
     refreshAdapter: "รีเฟรชอะแดปเตอร์",
@@ -100,7 +100,7 @@ const translations = {
     confirmPause: "พักการเชื่อมต่อเครือข่ายตอนนี้?",
     confirmRestore: "คืนค่าการเชื่อมต่อเครือข่ายตอนนี้?",
     confirmToggle: "สลับสถานะเครือข่ายตอนนี้?",
-    confirmShutdown: "ออกจาก Network Control ตอนนี้?",
+    confirmShutdown: "ออกจาก LaxyControl ตอนนี้?",
   },
 };
 
@@ -248,7 +248,7 @@ document.querySelectorAll("[data-action]").forEach((button) => {
 
 el("language").addEventListener("change", (event) => {
   currentLanguage = event.target.value;
-  localStorage.setItem("networkControlLanguage", currentLanguage);
+  localStorage.setItem("laxyControlLanguage", currentLanguage);
   applyLanguage();
   if (currentStatus) {
     fillSettings(currentStatus);

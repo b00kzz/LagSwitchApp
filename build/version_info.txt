@@ -16,12 +16,12 @@ VSVersionInfo(
         '040904B0',
         [
           StringStruct('CompanyName', 'Local Publisher'),
-          StringStruct('FileDescription', 'Network Control WebApp'),
+          StringStruct('FileDescription', 'LaxyControl'),
           StringStruct('FileVersion', '1.0.0.0'),
-          StringStruct('InternalName', 'NetworkControlWebApp'),
+          StringStruct('InternalName', 'LaxyControl'),
           StringStruct('LegalCopyright', 'Copyright (c) 2026 Local Publisher'),
-          StringStruct('OriginalFilename', 'NetworkControlWebApp.exe'),
-          StringStruct('ProductName', 'Network Control WebApp'),
+          StringStruct('OriginalFilename', 'LaxyControl.exe'),
+          StringStruct('ProductName', 'LaxyControl'),
           StringStruct('ProductVersion', '1.0.0.0')
         ]
       )

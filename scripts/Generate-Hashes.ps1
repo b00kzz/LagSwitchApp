@@ -3,16 +3,17 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $OutFile = Join-Path $Root "dist\SHA256SUMS.txt"
 $Targets = @(
-    "dist\NetworkControlWebApp.exe",
-    "dist\NetworkControlWebAppSetup.exe",
+    "dist\LaxyControl.exe",
+    "dist\LaxyControlSetup.exe",
     "README.md",
     "README_TH.md",
     "requirements.txt",
     "requirements-build.txt",
-    "build\NetworkControlWebApp.spec",
+    "build\LaxyControl.spec",
     "build\version_info.txt",
     "build\app.manifest",
-    "installer\NetworkControlWebApp.iss"
+    "assets\LaxyControl.ico",
+    "installer\LaxyControl.iss"
 )
 
 $Lines = foreach ($RelativePath in $Targets) {
