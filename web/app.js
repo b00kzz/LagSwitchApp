@@ -320,7 +320,7 @@ function setResult(result) {
 
 function fillSettings(status) {
   const settings = status.settings;
-  el("hotkey").value = settings.hotkey || "f8";
+  el("hotkey").value = settings.hotkey || "g";
   el("mode").value = settings.mode || "toggle";
   el("blockScope").value = settings.block_scope || "all";
   el("openUiOnStart").checked = Boolean(settings.open_ui_on_start);
@@ -412,27 +412,6 @@ async function saveSettings(silent = false) {
   return result.settings;
 }
 
-async function persistQuickRestoreDelay() {
-  if (!currentStatus) {
-    return;
-  }
-
-  const current = Number.parseFloat(currentStatus.settings.restore_delay_seconds || currentStatus.max_pause_seconds || 3);
-  const next = restoreDelayValue();
-  syncRestoreInputs(next);
-  if (Math.abs(current - next) > 0.001) {
-    await saveSettings(true);
-  }
-}
-
-async function persistActionSettings() {
-  if (!currentStatus) {
-    return;
-  }
-
-  await saveSettings(true);
-}
-
 async function runAction(action) {
   const confirmations = {
     pause: "confirmPause",
@@ -446,13 +425,14 @@ async function runAction(action) {
   }
 
   try {
+    const payload = { action };
     if (action === "pause" || action === "toggle") {
-      await persistQuickRestoreDelay();
-      await persistActionSettings();
+      syncRestoreInputs(restoreDelayValue());
+      payload.settings = collectSettingsPayload();
     }
     const result = await api("/api/action", {
       method: "POST",
-      body: JSON.stringify({ action }),
+      body: JSON.stringify(payload),
     });
     setResult(result);
     if (action === "shutdown") {

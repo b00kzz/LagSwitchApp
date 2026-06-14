@@ -25,6 +25,7 @@ APP_FIREWALL_PATH = ""
 LOCAL_FIREWALL_RULES_ALLOWED = None
 LAG_ENGINE = None
 LAG_PROFILE = {}
+LAG_ENABLED = False
 
 
 def _completed(ok=True, message="", returncode=0, **extra):
@@ -90,11 +91,11 @@ def _lag_engine_running():
 
 
 def lag_active():
-    return _lag_engine_running()
+    return _lag_engine_running() and LAG_ENABLED
 
 
 def active_lag_profile():
-    if not _lag_engine_running():
+    if not lag_active():
         return {}
     return dict(LAG_PROFILE)
 
@@ -128,7 +129,7 @@ class WinDivertLagEngine:
     MAX_PACKET_SIZE = 0xFFFF
     ADDRESS_SIZE = 128
 
-    def __init__(self, dll_path, profile):
+    def __init__(self, dll_path, profile, enabled=True):
         self.dll_path = dll_path
         self.profile = dict(profile)
         self.dll = None
@@ -138,6 +139,8 @@ class WinDivertLagEngine:
         self.error = ""
         self.recv_thread = None
         self.send_thread = None
+        self.profile_lock = threading.Lock()
+        self.enabled = bool(enabled)
         self.condition = threading.Condition()
         self.queue = []
         self.sequence = 0
@@ -187,6 +190,20 @@ class WinDivertLagEngine:
     def is_running(self):
         return self.ready_event.is_set() and not self.stop_event.is_set()
 
+    def set_enabled(self, enabled, profile=None):
+        with self.profile_lock:
+            self.enabled = bool(enabled)
+            if profile is not None:
+                self.profile = dict(profile)
+        if not enabled:
+            with self.condition:
+                self.queue.clear()
+                self.condition.notify_all()
+
+    def state_snapshot(self):
+        with self.profile_lock:
+            return self.enabled, dict(self.profile)
+
     def stop(self):
         self.stop_event.set()
         if self.handle:
@@ -201,15 +218,15 @@ class WinDivertLagEngine:
             if thread and thread.is_alive():
                 thread.join(timeout=1.5)
 
-    def _packet_delay_seconds(self):
-        delay_ms = int(self.profile.get("delay_ms", 0))
-        jitter_ms = int(self.profile.get("jitter_ms", 0))
+    def _packet_delay_seconds(self, profile):
+        delay_ms = int(profile.get("delay_ms", 0))
+        jitter_ms = int(profile.get("jitter_ms", 0))
         if jitter_ms:
             delay_ms = max(0, delay_ms + random.randint(-jitter_ms, jitter_ms))
         return delay_ms / 1000.0
 
-    def _should_drop(self):
-        loss_percent = float(self.profile.get("loss_percent", 0.0))
+    def _should_drop(self, profile):
+        loss_percent = float(profile.get("loss_percent", 0.0))
         return loss_percent > 0 and random.random() < (loss_percent / 100.0)
 
     def _recv_loop(self):
@@ -224,12 +241,14 @@ class WinDivertLagEngine:
                     self.stop_event.set()
                 break
 
-            if self._should_drop():
+            enabled, profile = self.state_snapshot()
+            if enabled and self._should_drop(profile):
                 continue
 
             data = bytes(packet.raw[: read_len.value])
             address = bytes(addr.raw)
-            send_at = time.monotonic() + self._packet_delay_seconds()
+            delay_seconds = self._packet_delay_seconds(profile) if enabled else 0
+            send_at = time.monotonic() + delay_seconds
             with self.condition:
                 self.sequence += 1
                 heapq.heappush(self.queue, (send_at, self.sequence, data, address))
@@ -256,11 +275,34 @@ class WinDivertLagEngine:
 
 
 def set_lag_state(active, profile=None):
-    global LAG_ENGINE, LAG_PROFILE
+    global LAG_ENGINE, LAG_PROFILE, LAG_ENABLED
 
     if active:
+        lag_profile = _normalized_lag_profile(profile)
+        if lag_profile["delay_ms"] <= 0 and lag_profile["jitter_ms"] <= 0 and lag_profile["loss_percent"] <= 0:
+            return _completed(False, "Set delay, jitter, or packet loss above zero before starting lag.", returncode=1)
+
+        if _lag_engine_running() and LAG_ENGINE.profile.get("filter") == lag_profile["filter"]:
+            LAG_ENGINE.set_enabled(True, lag_profile)
+            LAG_PROFILE = lag_profile
+            LAG_ENABLED = True
+            return _completed(
+                True,
+                (
+                    "Lag started instantly: "
+                    f"{lag_profile['delay_ms']}ms delay, "
+                    f"{lag_profile['jitter_ms']}ms jitter, "
+                    f"{lag_profile['loss_percent']:g}% packet loss."
+                ),
+                method="windivert",
+                profile=lag_profile,
+            )
+
         if _lag_engine_running():
-            return _completed(True, "Lag is already active.", method="windivert", profile=active_lag_profile())
+            LAG_ENGINE.stop()
+            LAG_ENGINE = None
+            LAG_PROFILE = {}
+            LAG_ENABLED = False
 
         dll_path = traffic_shaper_path()
         if not dll_path:
@@ -271,20 +313,18 @@ def set_lag_state(active, profile=None):
                 method="windivert",
             )
 
-        lag_profile = _normalized_lag_profile(profile)
-        if lag_profile["delay_ms"] <= 0 and lag_profile["jitter_ms"] <= 0 and lag_profile["loss_percent"] <= 0:
-            return _completed(False, "Set delay, jitter, or packet loss above zero before starting lag.", returncode=1)
-
         engine = WinDivertLagEngine(dll_path, lag_profile)
         try:
             engine.start()
         except OSError as exc:
             LAG_ENGINE = None
             LAG_PROFILE = {}
+            LAG_ENABLED = False
             return _completed(False, f"Could not start WinDivert lag engine: {exc}", returncode=1, method="windivert")
 
         LAG_ENGINE = engine
         LAG_PROFILE = lag_profile
+        LAG_ENABLED = True
         return _completed(
             True,
             (
@@ -302,12 +342,22 @@ def set_lag_state(active, profile=None):
             LAG_ENGINE.stop()
         LAG_ENGINE = None
         LAG_PROFILE = {}
+        LAG_ENABLED = False
         return _completed(True, "Lag is already stopped.", method="windivert")
 
-    LAG_ENGINE.stop()
+    LAG_ENGINE.set_enabled(False)
+    LAG_PROFILE = {}
+    LAG_ENABLED = False
+    return _completed(True, "Lag stopped instantly.", method="windivert")
+
+
+def shutdown_lag_engine():
+    global LAG_ENGINE, LAG_PROFILE, LAG_ENABLED
+    if LAG_ENGINE:
+        LAG_ENGINE.stop()
     LAG_ENGINE = None
     LAG_PROFILE = {}
-    return _completed(True, "Lag stopped.", method="windivert")
+    LAG_ENABLED = False
 
 
 def local_firewall_rules_allowed():
@@ -442,7 +492,26 @@ def _ensure_app_firewall_rules(app_path):
 
 
 def prepare_fast_mode():
-    return traffic_shaper_available()
+    global LAG_ENGINE, LAG_PROFILE, LAG_ENABLED
+
+    if _lag_engine_running():
+        return True
+
+    dll_path = traffic_shaper_path()
+    if not dll_path:
+        return False
+
+    profile = _normalized_lag_profile({"delay_ms": 0, "jitter_ms": 0, "loss_percent": 0, "filter": "ip"})
+    engine = WinDivertLagEngine(dll_path, profile, enabled=False)
+    try:
+        engine.start()
+    except OSError:
+        return False
+
+    LAG_ENGINE = engine
+    LAG_PROFILE = {}
+    LAG_ENABLED = False
+    return True
 
 
 def ping_diagnostics(target="1.1.1.1", count=4, timeout_ms=1200):

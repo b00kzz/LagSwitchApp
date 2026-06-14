@@ -407,6 +407,23 @@ class LaxyControlApp:
         self.set_last_result(True, "Settings saved.")
         return self.settings
 
+    def update_lag_action_settings(self, data):
+        with self.lock:
+            updated = dict(self.settings)
+            for key in (
+                "lag_delay_ms",
+                "lag_jitter_ms",
+                "lag_loss_percent",
+                "lag_filter",
+                "restore_delay_seconds",
+            ):
+                if key in data:
+                    updated[key] = data[key]
+            self.settings = save_settings(updated)
+            if self.network_paused:
+                self.schedule_pause_timeout()
+            return self.settings
+
     def status(self):
         adapter = self.selected_adapter()
         adapter_status = network.adapter_status(adapter)
@@ -438,13 +455,10 @@ class LaxyControlApp:
         self.service_running = False
         self.stop_event.set()
         self.cancel_pause_timer()
+        network.shutdown_lag_engine()
         with self.lock:
-            active = self.network_paused
-        if active:
-            network.set_lag_state(False, self.lag_profile())
-            with self.lock:
-                self.network_paused = False
-                self.active_pause_app_path = ""
+            self.network_paused = False
+            self.active_pause_app_path = ""
         self.hotkeys.stop()
         self.overlay.stop()
         if read_ui_token() == self.ui_token:
@@ -598,6 +612,8 @@ class LaxyControlApp:
 
                 if request_path == "/api/action":
                     action = data.get("action")
+                    if action in ("pause", "toggle") and isinstance(data.get("settings"), dict):
+                        app.update_lag_action_settings(data["settings"])
                     if action == "restore":
                         self.send_json(app.restore_network("web"))
                     elif action == "pause":

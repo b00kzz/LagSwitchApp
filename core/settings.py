@@ -5,8 +5,8 @@ from core.paths import app_dir
 CONFIG_FILE = app_dir() / "config.json"
 
 DEFAULT_SETTINGS = {
-    "hotkey": "f8",
-    "mode": "hold",
+    "hotkey": "g",
+    "mode": "toggle",
     "adapter": "",
     "block_scope": "all",
     "app_path": "",
@@ -29,8 +29,8 @@ def normalize_settings(settings):
     normalized = dict(DEFAULT_SETTINGS)
     normalized.update(settings or {})
 
-    normalized["hotkey"] = str(normalized.get("hotkey") or "f8").strip().lower()
-    mode = str(normalized.get("mode") or "hold").strip().lower()
+    normalized["hotkey"] = str(normalized.get("hotkey") or DEFAULT_SETTINGS["hotkey"]).strip().lower()
+    mode = str(normalized.get("mode") or DEFAULT_SETTINGS["mode"]).strip().lower()
     normalized["mode"] = "hold" if mode in ("hold", "2") else "toggle"
     normalized["adapter"] = str(normalized.get("adapter") or "").strip()
     block_scope = str(normalized.get("block_scope") or "all").strip().lower()
