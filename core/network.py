@@ -3,6 +3,7 @@ import csv
 import heapq
 import os
 import random
+import re
 import subprocess
 import sys
 import threading
@@ -442,6 +443,59 @@ def _ensure_app_firewall_rules(app_path):
 
 def prepare_fast_mode():
     return traffic_shaper_available()
+
+
+def ping_diagnostics(target="1.1.1.1", count=4, timeout_ms=1200):
+    target = str(target or "1.1.1.1").strip()
+    if not re.fullmatch(r"[A-Za-z0-9.\-:]{1,253}", target):
+        return _completed(False, "Use a hostname or IP address only.", returncode=1)
+
+    try:
+        count = int(count)
+    except (TypeError, ValueError):
+        count = 4
+    count = min(10, max(1, count))
+
+    try:
+        timeout_ms = int(timeout_ms)
+    except (TypeError, ValueError):
+        timeout_ms = 1200
+    timeout_ms = min(5000, max(300, timeout_ms))
+
+    try:
+        result = subprocess.run(
+            ["ping", "-n", str(count), "-w", str(timeout_ms), target],
+            capture_output=True,
+            creationflags=CREATE_NO_WINDOW,
+            text=True,
+            timeout=max(4, (timeout_ms / 1000 * count) + 2),
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return _completed(False, f"Ping diagnostic failed: {exc}", returncode=1, target=target)
+
+    output = (result.stdout or "") + "\n" + (result.stderr or "")
+    times = [int(value) for value in re.findall(r"time[=<]\s*(\d+)\s*ms", output, flags=re.IGNORECASE)]
+    loss_match = re.search(r"\((\d+(?:\.\d+)?)%\s*loss\)", output, flags=re.IGNORECASE)
+    average_match = re.search(r"Average\s*=\s*(\d+)\s*ms", output, flags=re.IGNORECASE)
+
+    received = len(times)
+    sent = count
+    loss_percent = float(loss_match.group(1)) if loss_match else round(((sent - received) / sent) * 100, 1)
+    average_ms = int(average_match.group(1)) if average_match else (round(sum(times) / received) if received else None)
+    jitter_ms = round(max(times) - min(times), 1) if len(times) > 1 else 0
+
+    return _completed(
+        result.returncode == 0 or received > 0,
+        "Diagnostic complete." if received else "Diagnostic complete, but no replies were received.",
+        returncode=result.returncode,
+        target=target,
+        sent=sent,
+        received=received,
+        loss_percent=loss_percent,
+        average_ms=average_ms,
+        jitter_ms=jitter_ms,
+        samples_ms=times,
+    )
 
 
 def _set_firewall_rules_enabled(paused, rule_names):

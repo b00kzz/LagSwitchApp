@@ -146,7 +146,8 @@ p {
 
 .restore-input,
 .inline-input,
-.inline-select-action {
+.inline-select-action,
+.diagnostic-target {
   display: grid;
   grid-template-columns: 1fr 96px auto;
   align-items: center;
@@ -167,6 +168,74 @@ p {
   font-size: 12px;
   font-style: normal;
   font-weight: 700;
+}
+
+.preset-panel {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.preset-panel > span,
+.diagnostic-target span,
+.diagnostic-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+button.preset-button {
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  color: var(--accent);
+  background: #eff6ff;
+  font-size: 12px;
+}
+
+button.preset-button:hover {
+  border-color: var(--accent);
+  background: #dbeafe;
+}
+
+.diagnostic-target {
+  grid-template-columns: 1fr minmax(0, 1.6fr) auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.diagnostic-target button {
+  min-height: 40px;
+}
+
+.diagnostic-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.diagnostic-grid div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.diagnostic-grid b {
+  overflow-wrap: anywhere;
+  font-size: 16px;
 }
 
 .inline-select-action {
@@ -454,8 +523,14 @@ select:focus {
 
   .restore-input,
   .inline-input,
-  .inline-select-action {
+  .inline-select-action,
+  .diagnostic-target {
     grid-template-columns: 1fr;
+  }
+
+  .preset-grid,
+  .diagnostic-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
   .meta-list div {

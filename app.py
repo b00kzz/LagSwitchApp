@@ -535,15 +535,27 @@ class LaxyControlApp:
                     self.send_error(403)
                     return
 
-                if self.path == "/api/status":
+                request_path = self.parsed_path().path
+
+                if request_path == "/api/status":
                     self.send_json(app.status())
                     return
 
-                if self.path == "/api/apps":
+                if request_path == "/api/apps":
                     self.send_json({"apps": network.app_rows()})
                     return
 
-                if self.parsed_path().path == "/api/app-icon":
+                if request_path == "/api/diagnostics":
+                    query = parse_qs(self.parsed_path().query)
+                    self.send_json(
+                        network.ping_diagnostics(
+                            query.get("target", ["1.1.1.1"])[0],
+                            query.get("count", [4])[0],
+                        )
+                    )
+                    return
+
+                if request_path == "/api/app-icon":
                     query = parse_qs(self.parsed_path().query)
                     icon = network.app_icon_png(query.get("path", [""])[0])
                     if not icon:
@@ -552,7 +564,7 @@ class LaxyControlApp:
                     self.send_png(icon)
                     return
 
-                if self.path == "/api/open-ui":
+                if request_path == "/api/open-ui":
                     app.open_ui()
                     self.send_json({"ok": True})
                     return

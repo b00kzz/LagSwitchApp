@@ -38,9 +38,16 @@ const hotkeyOptions = [
   "alt+space",
 ];
 
+const networkPresets = {
+  stable: { delay: 40, jitter: 10, loss: 0 },
+  busy: { delay: 120, jitter: 45, loss: 2 },
+  mobile: { delay: 180, jitter: 90, loss: 4 },
+  lossy: { delay: 260, jitter: 120, loss: 8 },
+};
+
 const translations = {
   en: {
-    subtitle: "Local lag control",
+    subtitle: "Local network simulator for QA and connection testing",
     language: "Language",
     checking: "Checking...",
     service: "Service",
@@ -68,6 +75,21 @@ const translations = {
     blockScope: "Lag Target",
     blockScopeAll: "All packets",
     adapterCutWarning: "Lag mode adds delay and packet loss without disabling the adapter.",
+    presets: "Network presets",
+    presetStable: "Stable Wi-Fi",
+    presetBusy: "Busy Wi-Fi",
+    presetMobile: "Mobile Data",
+    presetLossy: "Packet Loss",
+    diagnostics: "Diagnostics",
+    diagnosticsHelp: "Run before and during lag to compare the real connection.",
+    diagnosticTarget: "Ping target",
+    runDiagnostics: "Run",
+    diagnosticAvg: "Average",
+    diagnosticJitter: "Jitter",
+    diagnosticLoss: "Loss",
+    diagnosticsWaiting: "No diagnostic run yet.",
+    diagnosticsRunning: "Running diagnostic...",
+    diagnosticsComplete: "Diagnostic complete.",
     restoreDelay: "Auto restore",
     lagDelay: "Delay",
     lagJitter: "Jitter",
@@ -98,7 +120,7 @@ const translations = {
     confirmShutdown: "Exit LaxyControl now?",
   },
   th: {
-    subtitle: "ควบคุมอาการ lag ในเครื่อง",
+    subtitle: "จำลองสภาพเครือข่ายในเครื่องสำหรับ QA และทดสอบการเชื่อมต่อ",
     language: "ภาษา",
     checking: "กำลังตรวจสอบ...",
     service: "บริการ",
@@ -126,6 +148,21 @@ const translations = {
     blockScope: "เป้าหมาย Lag",
     blockScopeAll: "ทุก packet",
     adapterCutWarning: "โหมด Lag จะเพิ่ม delay และ packet loss โดยไม่ปิด adapter",
+    presets: "โปรไฟล์เครือข่าย",
+    presetStable: "Wi-Fi เสถียร",
+    presetBusy: "Wi-Fi หนาแน่น",
+    presetMobile: "เน็ตมือถือ",
+    presetLossy: "Packet loss สูง",
+    diagnostics: "ตรวจสภาพเน็ต",
+    diagnosticsHelp: "รันก่อนและระหว่างเปิด lag เพื่อเทียบค่าจริงของการเชื่อมต่อ",
+    diagnosticTarget: "เป้าหมาย ping",
+    runDiagnostics: "รัน",
+    diagnosticAvg: "ค่าเฉลี่ย",
+    diagnosticJitter: "Jitter",
+    diagnosticLoss: "Loss",
+    diagnosticsWaiting: "ยังไม่ได้รันการตรวจสภาพเน็ต",
+    diagnosticsRunning: "กำลังตรวจสภาพเน็ต...",
+    diagnosticsComplete: "ตรวจสภาพเน็ตเสร็จแล้ว",
     restoreDelay: "หยุดอัตโนมัติ",
     lagDelay: "Delay",
     lagJitter: "Jitter",
@@ -192,6 +229,48 @@ function syncLagInputs(settings = {}) {
   el("lagDelay").value = Math.round(Number(settings.lag_delay_ms ?? 120));
   el("lagJitter").value = Math.round(Number(settings.lag_jitter_ms ?? 30));
   el("lagLoss").value = Number(settings.lag_loss_percent ?? 4).toFixed(1).replace(/\.0$/, "");
+}
+
+function applyPreset(name) {
+  const preset = networkPresets[name];
+  if (!preset) {
+    return;
+  }
+
+  el("lagDelay").value = preset.delay;
+  el("lagJitter").value = preset.jitter;
+  el("lagLoss").value = preset.loss;
+  setResult({
+    ok: true,
+    message: `${t("presets")}: ${t(`preset${name.charAt(0).toUpperCase()}${name.slice(1)}`)}`,
+  });
+  saveSettings(true).catch((error) => setResult({ ok: false, message: error.message }));
+}
+
+function setDiagnosticResult(result) {
+  el("diagAverage").textContent = result.average_ms == null ? "-" : `${result.average_ms}ms`;
+  el("diagJitter").textContent = result.jitter_ms == null ? "-" : `${result.jitter_ms}ms`;
+  el("diagLoss").textContent = result.loss_percent == null ? "-" : `${result.loss_percent}%`;
+
+  const samples = Array.isArray(result.samples_ms) && result.samples_ms.length
+    ? ` (${result.samples_ms.join(", ")}ms)`
+    : "";
+  const message = result.message || t("diagnosticsComplete");
+  el("diagnosticResult").textContent = `${message}${samples}`;
+  el("diagnosticResult").className = `result ${result.ok ? "ok" : "bad"}`;
+}
+
+async function runDiagnostics() {
+  const target = el("diagnosticTarget").value.trim() || "1.1.1.1";
+  el("diagnosticResult").textContent = t("diagnosticsRunning");
+  el("diagnosticResult").className = "result";
+
+  try {
+    const result = await api(`/api/diagnostics?target=${encodeURIComponent(target)}`);
+    setDiagnosticResult(result);
+  } catch (error) {
+    setDiagnosticResult({ ok: false, message: error.message });
+  }
 }
 
 function applyLanguage() {
@@ -399,6 +478,12 @@ function closeWebUi() {
 document.querySelectorAll("[data-action]").forEach((button) => {
   button.addEventListener("click", () => runAction(button.dataset.action));
 });
+
+document.querySelectorAll("[data-preset]").forEach((button) => {
+  button.addEventListener("click", () => applyPreset(button.dataset.preset));
+});
+
+el("runDiagnostics").addEventListener("click", runDiagnostics);
 
 el("language").addEventListener("change", (event) => {
   currentLanguage = event.target.value;

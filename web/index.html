@@ -60,6 +60,16 @@
         <em data-i18n="seconds">sec</em>
       </label>
 
+      <div class="preset-panel">
+        <span data-i18n="presets">Network presets</span>
+        <div class="preset-grid">
+          <button class="preset-button" type="button" data-preset="stable" data-i18n="presetStable">Stable Wi-Fi</button>
+          <button class="preset-button" type="button" data-preset="busy" data-i18n="presetBusy">Busy Wi-Fi</button>
+          <button class="preset-button" type="button" data-preset="mobile" data-i18n="presetMobile">Mobile Data</button>
+          <button class="preset-button" type="button" data-preset="lossy" data-i18n="presetLossy">Packet Loss</button>
+        </div>
+      </div>
+
       <div class="actions primary-actions">
         <button class="danger" data-action="pause" data-i18n="testPause">Start Lag</button>
         <button data-action="restore" data-i18n="testRestore">Restore</button>
@@ -73,6 +83,35 @@
       </div>
 
       <p class="result" id="lastResult" data-i18n="waitingStatus">Waiting for status...</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <h2 data-i18n="diagnostics">Diagnostics</h2>
+        <p data-i18n="diagnosticsHelp">Run before and during lag to compare the real connection.</p>
+      </div>
+
+      <label class="diagnostic-target">
+        <span data-i18n="diagnosticTarget">Ping target</span>
+        <input id="diagnosticTarget" type="text" value="1.1.1.1" autocomplete="off">
+        <button type="button" id="runDiagnostics" data-i18n="runDiagnostics">Run</button>
+      </label>
+
+      <div class="diagnostic-grid" id="diagnosticGrid">
+        <div>
+          <span data-i18n="diagnosticAvg">Average</span>
+          <b id="diagAverage">-</b>
+        </div>
+        <div>
+          <span data-i18n="diagnosticJitter">Jitter</span>
+          <b id="diagJitter">-</b>
+        </div>
+        <div>
+          <span data-i18n="diagnosticLoss">Loss</span>
+          <b id="diagLoss">-</b>
+        </div>
+      </div>
+      <p class="result" id="diagnosticResult" data-i18n="diagnosticsWaiting">No diagnostic run yet.</p>
     </section>
 
     <section class="panel">
