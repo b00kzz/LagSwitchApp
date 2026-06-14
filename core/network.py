@@ -164,14 +164,6 @@ def set_adapter_state(adapter_name, enabled):
             "enabled": enabled,
         }
 
-    firewall_result = set_firewall_paused(not enabled)
-    if firewall_result["ok"]:
-        return {
-            **firewall_result,
-            "adapter": adapter_name,
-            "enabled": enabled,
-        }
-
     state = "enabled" if enabled else "disabled"
     result = _run_netsh(
         "interface",
@@ -183,15 +175,32 @@ def set_adapter_state(adapter_name, enabled):
 
     ok = result.returncode == 0
     if ok:
-        message = f"{adapter_name} {state}."
-    elif not is_admin():
+        return {
+            "ok": True,
+            "message": f"{adapter_name} {state}.",
+            "adapter": adapter_name,
+            "enabled": enabled,
+            "returncode": result.returncode,
+            "method": "adapter",
+        }
+
+    firewall_result = set_firewall_paused(not enabled)
+    if firewall_result["ok"]:
+        return {
+            **firewall_result,
+            "adapter": adapter_name,
+            "enabled": enabled,
+        }
+
+    if not is_admin():
         message = f"Could not set {adapter_name}. Run as Administrator."
     else:
-        detail = (result.stderr or result.stdout or "").strip()
-        message = detail or f"Could not set {adapter_name}."
+        adapter_detail = (result.stderr or result.stdout or "").strip()
+        firewall_detail = firewall_result.get("message", "")
+        message = adapter_detail or firewall_detail or f"Could not set {adapter_name}."
 
     return {
-        "ok": ok,
+        "ok": False,
         "message": message,
         "adapter": adapter_name,
         "enabled": enabled,
