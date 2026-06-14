@@ -51,7 +51,7 @@
     <section class="panel">
       <div class="panel-title">
         <h2 data-i18n="testControls">Controls</h2>
-        <p data-i18n="testControlsHelp">Pause automatically restores after the time below.</p>
+        <p data-i18n="testControlsHelp">Lag automatically stops after the time below.</p>
       </div>
 
       <label class="restore-input">
@@ -61,7 +61,7 @@
       </label>
 
       <div class="actions primary-actions">
-        <button class="danger" data-action="pause" data-i18n="testPause">Pause</button>
+        <button class="danger" data-action="pause" data-i18n="testPause">Start Lag</button>
         <button data-action="restore" data-i18n="testRestore">Restore</button>
         <button class="secondary" data-action="toggle" data-i18n="testToggle">Toggle</button>
       </div>
@@ -105,42 +105,43 @@
         </div>
 
         <div class="field">
-          <label for="blockScope" data-i18n="blockScope">Block Target</label>
-          <select id="blockScope" name="blockScope">
-            <option value="all" data-i18n="blockScopeAll">All network</option>
-            <option value="app" data-i18n="blockScopeApp">Selected app</option>
-          </select>
-          <p class="target-warning" id="adapterCutWarning" data-i18n="adapterCutWarning">All-network mode disables the selected adapter. Your own connection will drop briefly.</p>
-        </div>
-
-        <div class="field app-target">
-          <label for="appSearch" data-i18n="appSelect">Running App</label>
-          <p class="app-warning" id="appFirewallWarning" data-i18n="appFirewallUnavailable" hidden>Per-app blocking is unavailable because Windows policy disables local firewall rules.</p>
-          <div class="inline-select-action">
-            <input id="appSearch" type="text" autocomplete="off" data-i18n-placeholder="appSearchPlaceholder" placeholder="Search apps">
-            <button class="secondary" type="button" id="refreshAppsButton" data-i18n="refreshApps">Refresh Apps</button>
+          <label for="lagDelay" data-i18n="lagDelay">Delay</label>
+          <div class="inline-input">
+            <input id="lagDelay" name="lagDelay" type="number" min="0" max="5000" step="1" inputmode="numeric">
+            <span data-i18n="milliseconds">ms</span>
           </div>
-          <div class="app-filters" id="appFilters">
-            <button type="button" class="selected" data-source-filter="all" data-i18n="appFilterAll">All</button>
-            <button type="button" data-source-filter="running" data-i18n="appFilterRunning">Running</button>
-            <button type="button" data-source-filter="shortcut" data-i18n="appFilterShortcuts">Shortcuts</button>
-            <button type="button" data-source-filter="installed" data-i18n="appFilterInstalled">Installed</button>
-          </div>
-          <p class="app-summary" id="appSummary"></p>
-          <div class="app-list" id="appList"></div>
-        </div>
-
-        <div class="field app-target">
-          <label for="appPath" data-i18n="appPath">App .exe Path</label>
-          <input id="appPath" name="appPath" type="text" placeholder="C:\Path\Game.exe" autocomplete="off" data-i18n-placeholder="appPathPlaceholder">
         </div>
 
         <div class="field">
+          <label for="lagJitter" data-i18n="lagJitter">Jitter</label>
+          <div class="inline-input">
+            <input id="lagJitter" name="lagJitter" type="number" min="0" max="5000" step="1" inputmode="numeric">
+            <span data-i18n="milliseconds">ms</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="lagLoss" data-i18n="packetLoss">Packet loss</label>
+          <div class="inline-input">
+            <input id="lagLoss" name="lagLoss" type="number" min="0" max="100" step="0.1" inputmode="decimal">
+            <span>%</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="blockScope" data-i18n="blockScope">Lag Target</label>
+          <select id="blockScope" name="blockScope">
+            <option value="all" data-i18n="blockScopeAll">All packets</option>
+          </select>
+          <p class="target-warning" id="adapterCutWarning" data-i18n="adapterCutWarning">Lag mode adds delay and packet loss without disabling the adapter.</p>
+        </div>
+
+        <div class="field" hidden>
           <label for="adapter" data-i18n="networkAdapter">Network Adapter</label>
           <select id="adapter" name="adapter"></select>
         </div>
 
-        <div class="field">
+        <div class="field" hidden>
           <label for="customAdapter" data-i18n="customAdapter">Custom Adapter Name</label>
           <input id="customAdapter" name="customAdapter" type="text" placeholder="Optional, if not listed" data-i18n-placeholder="customAdapterPlaceholder">
         </div>

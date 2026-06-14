@@ -2,7 +2,7 @@
 
 [ภาษาไทย](README_TH.md) | English
 
-Web-first local network control for Windows. The app runs as a visible local service with a Web UI for testing and settings.
+Web-first local lag control for Windows. The app runs as a visible local service with a Web UI for testing and settings.
 
 ## Quick Start
 
@@ -11,7 +11,7 @@ Web-first local network control for Windows. The app runs as a visible local ser
 3. Approve the Windows Administrator prompt
 4. Wait for packages to install
 5. The Web UI opens at `http://127.0.0.1:8787`
-6. Choose block target, adapter or app, hotkey, and mode
+6. Choose delay, jitter, packet loss, hotkey, and mode
 7. Click `Save Settings`
 
 ## Launchers
@@ -26,21 +26,22 @@ If the service is already running, the launcher opens the Web UI only and does n
 
 - Python runs the visible local service.
 - The local Web UI is only for testing and configuration.
-- Global network pause/restore hotkeys keep working when another app is focused.
+- Global lag start/stop hotkeys keep working when another app is focused.
 - The service is stopped from the Web UI `Exit Service` button.
-- `netsh` restores or pauses the selected adapter/network path, or firewall rules for one selected app.
-- The Web UI can toggle, pause, restore, show overlay, close overlay, or exit the service.
+- The built-in Python lag engine applies delay, jitter, and packet loss through WinDivert without disabling adapters.
+- Put `WinDivert.dll` and `WinDivert64.sys` next to `LaxyControl.exe` or at `tools\windivert\` so lag actions can run.
+- The Web UI can toggle lag, start lag, stop lag, show overlay, close overlay, or exit the service.
 - If the app is already running, launching it again opens the existing Web UI instead of starting another service.
 - The Web UI opens in the built-in Secure Browser by default. Direct browser access is blocked with a local token while secure mode is enabled.
 - The Secure Browser only allows configured local hosts, hides menus/context actions, blocks common developer-tool shortcuts, and applies Windows content protection with `SetWindowDisplayAffinity`.
 - The executable requests Administrator permission at startup through its Windows manifest.
-- Web UI pause, restore, toggle, and exit actions ask for confirmation before running.
+- Web UI start lag, stop lag, toggle, and exit actions ask for confirmation before running.
 - Important network actions are appended to `audit.log` for local review.
 
 ## Modes
 
-- `Toggle`: press the hotkey once to pause the selected network target, press again to restore it.
-- `Hold`: hold the hotkey to pause the selected network target, release it to restore it.
+- `Toggle`: press the hotkey once to start lag, press again to stop it.
+- `Hold`: hold the hotkey to start lag, release it to stop it.
 - `Exit Service`: use the Web UI button to stop the local service.
 
 ## Overlay
@@ -58,7 +59,7 @@ Secure mode is enabled by default through `secure_browser_enabled` in `config.js
 - `app.py`: main service, Web UI server, overlay, hotkeys
 - `secure_browser.py`: locked PySide6 WebEngine window and Windows content protection
 - `overlay_window.py`: PySide6 mini overlay window
-- `core/network.py`: adapter list/status/pause/restore
+- `core/network.py`: adapter list/status and the WinDivert lag engine
 - `core/hotkeys.py`: global hotkey binding
 - `core/settings.py`: JSON config
 - `web/index.html`: dashboard
@@ -71,12 +72,13 @@ Secure mode is enabled by default through `secure_browser_enabled` in `config.js
 
 ## Build and Release
 
-1. Build the single-file executable with `scripts\Build-Release.ps1`.
-2. The ready-to-use single-file executable is copied to `release\LaxyControl.exe`.
-3. Sign `dist\LaxyControl.exe` with `scripts\Sign-Release.ps1` when you have a code signing certificate.
-4. Build `installer\LaxyControl.iss` with Inno Setup if you want an installer.
-5. Sign `dist\LaxyControlSetup.exe`.
-6. Publish the signed installer or the single-file executable.
+1. Run `Build Ready.bat` for the full ready build, or run `scripts\Build-Release.ps1` directly.
+2. The build installs WinDivert into `tools\windivert`, installs Python requirements, builds the EXE, and prepares the release file.
+3. The ready-to-use single-file executable is copied to `release\LaxyControl.exe`.
+4. Sign `dist\LaxyControl.exe` with `scripts\Sign-Release.ps1` when you have a code signing certificate.
+5. Build `installer\LaxyControl.iss` with Inno Setup if you want an installer.
+6. Sign `dist\LaxyControlSetup.exe`.
+7. Publish the signed installer or the single-file executable.
 
 Code signing needs your own certificate and Windows SDK `signtool.exe`. Set `LAXYCONTROL_CERT_PATH` and optionally `LAXYCONTROL_CERT_PASSWORD`, or pass `-CertificatePath` and `-CertificatePassword` to `scripts\Sign-Release.ps1`.
 
@@ -86,7 +88,7 @@ For the simplest output, run `Build EXE.bat`. It builds the app and prepares `re
 
 ## Notes
 
-- Use `Start LaxyControl.bat` for real usage because adapter control needs Administrator.
+- Use `Start LaxyControl.bat` for real usage because packet shaping needs Administrator.
 - Use `Start LaxyControl Test.bat` only for UI testing and settings.
-- If USB tethering does not appear, connect the phone and enable USB tethering before refreshing adapters.
+- Delay, jitter, and packet loss need WinDivert because Windows packet delay/drop requires a driver-level capture path.
 - Keep the Web UI, notifications, and audit log available so security tools and users can understand what changed.

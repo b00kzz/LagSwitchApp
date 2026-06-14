@@ -13,6 +13,9 @@ if ($Running) {
     throw "LaxyControl.exe is still running. Close it from the Web UI Exit button or Task Manager, then run this build again."
 }
 
+Write-Host "Installing WinDivert packet driver files..."
+& powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Install-WinDivert.ps1
+
 Write-Host "Installing runtime requirements..."
 & $Python -m pip install -r requirements.txt
 

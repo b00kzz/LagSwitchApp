@@ -3,16 +3,20 @@
 from pathlib import Path
 
 ROOT = Path(SPECPATH).parent
+datas = [
+    (str(ROOT / "web"), "web"),
+    (str(ROOT / "README.md"), "."),
+    (str(ROOT / "README_TH.md"), "."),
+]
+windivert_dir = ROOT / "tools" / "windivert"
+if windivert_dir.exists():
+    datas.append((str(windivert_dir), "tools/windivert"))
 
 a = Analysis(
     [str(ROOT / "app.py")],
     pathex=[str(ROOT)],
     binaries=[],
-    datas=[
-        (str(ROOT / "web"), "web"),
-        (str(ROOT / "README.md"), "."),
-        (str(ROOT / "README_TH.md"), "."),
-    ],
+    datas=datas,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

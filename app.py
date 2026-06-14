@@ -243,9 +243,15 @@ class LaxyControlApp:
         return self.settings.get("adapter", "").strip()
 
     def selected_app_path(self):
-        if self.settings.get("block_scope") != "app":
-            return ""
-        return self.settings.get("app_path", "").strip()
+        return ""
+
+    def lag_profile(self):
+        return {
+            "delay_ms": self.settings.get("lag_delay_ms", 120),
+            "jitter_ms": self.settings.get("lag_jitter_ms", 30),
+            "loss_percent": self.settings.get("lag_loss_percent", 4.0),
+            "filter": self.settings.get("lag_filter", "ip"),
+        }
 
     def restore_delay_seconds(self):
         try:
@@ -258,12 +264,7 @@ class LaxyControlApp:
         return seconds
 
     def actual_network_paused(self, adapter_status=None):
-        app_path = self.selected_app_path()
-        if app_path:
-            return network.app_firewall_paused(app_path)
-
-        status = adapter_status if adapter_status is not None else network.adapter_status(self.selected_adapter())
-        return bool(status and status.get("admin_state", "").lower() == "disabled")
+        return network.lag_active()
 
     def sync_pause_state(self, actual_paused):
         with self.lock:
@@ -322,11 +323,11 @@ class LaxyControlApp:
     def _pause_network(self, source):
         with self.lock:
             if self.network_paused:
-                self.set_last_result(True, f"{APP_NAME} network already paused.", source=source)
+                self.set_last_result(True, f"{APP_NAME} lag is already active.", source=source)
                 return self.last_result
 
         app_path = self.selected_app_path()
-        result = network.set_adapter_state(self.selected_adapter(), False, app_path)
+        result = network.set_lag_state(True, self.lag_profile())
         with self.lock:
             if result["ok"]:
                 self.network_paused = True
@@ -350,9 +351,7 @@ class LaxyControlApp:
             self.network_action_lock.release()
 
     def _restore_network(self, source):
-        with self.lock:
-            app_path = self.active_pause_app_path if self.network_paused else self.selected_app_path()
-        result = network.set_adapter_state(self.selected_adapter(), True, app_path)
+        result = network.set_lag_state(False, self.lag_profile())
         with self.lock:
             if result["ok"]:
                 self.network_paused = False
@@ -380,6 +379,10 @@ class LaxyControlApp:
                 "adapter",
                 "block_scope",
                 "app_path",
+                "lag_delay_ms",
+                "lag_jitter_ms",
+                "lag_loss_percent",
+                "lag_filter",
                 "open_ui_on_start",
                 "show_notifications",
                 "overlay_enabled",
@@ -419,6 +422,8 @@ class LaxyControlApp:
             "selected_adapter_status": adapter_status,
             "selected_app_path": self.selected_app_path(),
             "local_firewall_rules_allowed": network.local_firewall_rules_allowed(),
+            "traffic_shaper_available": network.traffic_shaper_available(),
+            "active_lag_profile": network.active_lag_profile(),
             "network_paused": network_paused,
             "actual_network_paused": actual_paused,
             "network_action_running": self.network_action_lock.locked(),
@@ -436,7 +441,7 @@ class LaxyControlApp:
         with self.lock:
             active = self.network_paused
         if active:
-            network.set_adapter_state(self.selected_adapter(), True, self.active_pause_app_path)
+            network.set_lag_state(False, self.lag_profile())
             with self.lock:
                 self.network_paused = False
                 self.active_pause_app_path = ""

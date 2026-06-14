@@ -1,7 +1,12 @@
 import ctypes
 import csv
+import heapq
 import os
+import random
 import subprocess
+import sys
+import threading
+import time
 import winreg
 from functools import lru_cache
 from io import StringIO
@@ -17,6 +22,17 @@ APP_FIREWALL_IN_RULE = "LaxyControl App Pause Inbound"
 FIREWALL_READY = False
 APP_FIREWALL_PATH = ""
 LOCAL_FIREWALL_RULES_ALLOWED = None
+LAG_ENGINE = None
+LAG_PROFILE = {}
+
+
+def _completed(ok=True, message="", returncode=0, **extra):
+    return {
+        "ok": ok,
+        "message": message,
+        "returncode": returncode,
+        **extra,
+    }
 
 
 def is_admin():
@@ -33,6 +49,264 @@ def _run_netsh(*args):
         creationflags=CREATE_NO_WINDOW,
         text=True,
     )
+
+
+def _candidate_windivert_paths():
+    names = ("WinDivert.dll", "windivert.dll")
+    app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    roots = [
+        app_root,
+        os.path.join(app_root, "tools"),
+        os.path.join(app_root, "tools", "windivert"),
+        os.path.join(app_root, "tools", "windivert", "x64"),
+        os.path.join(app_root, "tools", "windivert", "x86"),
+        os.path.join(app_root, "bin"),
+    ]
+    if getattr(sys, "frozen", False):
+        roots.append(os.path.dirname(sys.executable))
+    bundle_root = getattr(sys, "_MEIPASS", "")
+    if bundle_root:
+        roots.append(bundle_root)
+
+    for root in roots:
+        for name in names:
+            yield os.path.join(root, name)
+
+
+def traffic_shaper_path():
+    for candidate in _candidate_windivert_paths():
+        if candidate and os.path.isfile(candidate):
+            return os.path.abspath(candidate)
+    return ""
+
+
+def traffic_shaper_available():
+    return bool(traffic_shaper_path())
+
+
+def _lag_engine_running():
+    return LAG_ENGINE is not None and LAG_ENGINE.is_running()
+
+
+def lag_active():
+    return _lag_engine_running()
+
+
+def active_lag_profile():
+    if not _lag_engine_running():
+        return {}
+    return dict(LAG_PROFILE)
+
+
+def _clamped_float(value, default, minimum, maximum):
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        parsed = default
+    return min(maximum, max(minimum, parsed))
+
+
+def _normalized_lag_profile(profile):
+    profile = profile or {}
+    delay_ms = int(_clamped_float(profile.get("delay_ms"), 120, 0, 5000))
+    jitter_ms = int(_clamped_float(profile.get("jitter_ms"), 30, 0, 5000))
+    loss_percent = _clamped_float(profile.get("loss_percent"), 4.0, 0.0, 100.0)
+    filter_text = str(profile.get("filter") or "ip").strip() or "ip"
+    return {
+        "delay_ms": delay_ms,
+        "jitter_ms": jitter_ms,
+        "loss_percent": loss_percent,
+        "filter": filter_text,
+    }
+
+
+class WinDivertLagEngine:
+    WINDIVERT_LAYER_NETWORK = 0
+    WINDIVERT_PRIORITY_DEFAULT = 0
+    WINDIVERT_FLAG_DEFAULT = 0
+    MAX_PACKET_SIZE = 0xFFFF
+    ADDRESS_SIZE = 128
+
+    def __init__(self, dll_path, profile):
+        self.dll_path = dll_path
+        self.profile = dict(profile)
+        self.dll = None
+        self.handle = None
+        self.stop_event = threading.Event()
+        self.ready_event = threading.Event()
+        self.error = ""
+        self.recv_thread = None
+        self.send_thread = None
+        self.condition = threading.Condition()
+        self.queue = []
+        self.sequence = 0
+
+    def start(self):
+        self.dll = ctypes.WinDLL(self.dll_path, use_last_error=True)
+        self._bind_api()
+        self.handle = self.dll.WinDivertOpen(
+            self.profile["filter"].encode("utf-8"),
+            self.WINDIVERT_LAYER_NETWORK,
+            self.WINDIVERT_PRIORITY_DEFAULT,
+            self.WINDIVERT_FLAG_DEFAULT,
+        )
+        invalid = ctypes.c_void_p(-1).value
+        if not self.handle or self.handle == invalid:
+            code = ctypes.get_last_error()
+            raise OSError(code, "WinDivertOpen failed. Run as Administrator and keep WinDivert.dll/WinDivert64.sys together.")
+
+        self.recv_thread = threading.Thread(target=self._recv_loop, name="LaxyControlLagRecv", daemon=True)
+        self.send_thread = threading.Thread(target=self._send_loop, name="LaxyControlLagSend", daemon=True)
+        self.recv_thread.start()
+        self.send_thread.start()
+        self.ready_event.set()
+
+    def _bind_api(self):
+        self.dll.WinDivertOpen.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_int16, ctypes.c_uint64]
+        self.dll.WinDivertOpen.restype = ctypes.c_void_p
+        self.dll.WinDivertRecv.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_uint,
+            ctypes.POINTER(ctypes.c_uint),
+            ctypes.c_void_p,
+        ]
+        self.dll.WinDivertRecv.restype = ctypes.c_bool
+        self.dll.WinDivertSend.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_uint,
+            ctypes.POINTER(ctypes.c_uint),
+            ctypes.c_void_p,
+        ]
+        self.dll.WinDivertSend.restype = ctypes.c_bool
+        self.dll.WinDivertClose.argtypes = [ctypes.c_void_p]
+        self.dll.WinDivertClose.restype = ctypes.c_bool
+
+    def is_running(self):
+        return self.ready_event.is_set() and not self.stop_event.is_set()
+
+    def stop(self):
+        self.stop_event.set()
+        if self.handle:
+            try:
+                self.dll.WinDivertClose(self.handle)
+            except Exception:
+                pass
+            self.handle = None
+        with self.condition:
+            self.condition.notify_all()
+        for thread in (self.recv_thread, self.send_thread):
+            if thread and thread.is_alive():
+                thread.join(timeout=1.5)
+
+    def _packet_delay_seconds(self):
+        delay_ms = int(self.profile.get("delay_ms", 0))
+        jitter_ms = int(self.profile.get("jitter_ms", 0))
+        if jitter_ms:
+            delay_ms = max(0, delay_ms + random.randint(-jitter_ms, jitter_ms))
+        return delay_ms / 1000.0
+
+    def _should_drop(self):
+        loss_percent = float(self.profile.get("loss_percent", 0.0))
+        return loss_percent > 0 and random.random() < (loss_percent / 100.0)
+
+    def _recv_loop(self):
+        packet = ctypes.create_string_buffer(self.MAX_PACKET_SIZE)
+        while not self.stop_event.is_set():
+            addr = ctypes.create_string_buffer(self.ADDRESS_SIZE)
+            read_len = ctypes.c_uint(0)
+            ok = self.dll.WinDivertRecv(self.handle, packet, self.MAX_PACKET_SIZE, ctypes.byref(read_len), addr)
+            if not ok:
+                if not self.stop_event.is_set():
+                    self.error = f"WinDivertRecv failed: {ctypes.get_last_error()}"
+                    self.stop_event.set()
+                break
+
+            if self._should_drop():
+                continue
+
+            data = bytes(packet.raw[: read_len.value])
+            address = bytes(addr.raw)
+            send_at = time.monotonic() + self._packet_delay_seconds()
+            with self.condition:
+                self.sequence += 1
+                heapq.heappush(self.queue, (send_at, self.sequence, data, address))
+                self.condition.notify()
+
+    def _send_loop(self):
+        while not self.stop_event.is_set():
+            with self.condition:
+                while not self.queue and not self.stop_event.is_set():
+                    self.condition.wait(timeout=0.2)
+                if self.stop_event.is_set():
+                    break
+                send_at, _, data, address = self.queue[0]
+                wait_seconds = send_at - time.monotonic()
+                if wait_seconds > 0:
+                    self.condition.wait(timeout=min(wait_seconds, 0.2))
+                    continue
+                heapq.heappop(self.queue)
+
+            packet = ctypes.create_string_buffer(data, len(data))
+            addr = ctypes.create_string_buffer(address, len(address))
+            send_len = ctypes.c_uint(0)
+            self.dll.WinDivertSend(self.handle, packet, len(data), ctypes.byref(send_len), addr)
+
+
+def set_lag_state(active, profile=None):
+    global LAG_ENGINE, LAG_PROFILE
+
+    if active:
+        if _lag_engine_running():
+            return _completed(True, "Lag is already active.", method="windivert", profile=active_lag_profile())
+
+        dll_path = traffic_shaper_path()
+        if not dll_path:
+            return _completed(
+                False,
+                "WinDivert not found. Put WinDivert.dll and WinDivert64.sys next to LaxyControl.exe or in tools\\windivert\\.",
+                returncode=2,
+                method="windivert",
+            )
+
+        lag_profile = _normalized_lag_profile(profile)
+        if lag_profile["delay_ms"] <= 0 and lag_profile["jitter_ms"] <= 0 and lag_profile["loss_percent"] <= 0:
+            return _completed(False, "Set delay, jitter, or packet loss above zero before starting lag.", returncode=1)
+
+        engine = WinDivertLagEngine(dll_path, lag_profile)
+        try:
+            engine.start()
+        except OSError as exc:
+            LAG_ENGINE = None
+            LAG_PROFILE = {}
+            return _completed(False, f"Could not start WinDivert lag engine: {exc}", returncode=1, method="windivert")
+
+        LAG_ENGINE = engine
+        LAG_PROFILE = lag_profile
+        return _completed(
+            True,
+            (
+                "Lag started: "
+                f"{lag_profile['delay_ms']}ms delay, "
+                f"{lag_profile['jitter_ms']}ms jitter, "
+                f"{lag_profile['loss_percent']:g}% packet loss."
+            ),
+            method="windivert",
+            profile=lag_profile,
+        )
+
+    if not _lag_engine_running():
+        if LAG_ENGINE:
+            LAG_ENGINE.stop()
+        LAG_ENGINE = None
+        LAG_PROFILE = {}
+        return _completed(True, "Lag is already stopped.", method="windivert")
+
+    LAG_ENGINE.stop()
+    LAG_ENGINE = None
+    LAG_PROFILE = {}
+    return _completed(True, "Lag stopped.", method="windivert")
 
 
 def local_firewall_rules_allowed():
@@ -167,7 +441,7 @@ def _ensure_app_firewall_rules(app_path):
 
 
 def prepare_fast_mode():
-    return _ensure_firewall_rules().returncode == 0
+    return traffic_shaper_available()
 
 
 def _set_firewall_rules_enabled(paused, rule_names):
@@ -505,50 +779,14 @@ def adapter_status(adapter_name):
 
 
 def app_firewall_paused(app_path):
-    if not app_path:
-        return False
-    return _firewall_rule_enabled(APP_FIREWALL_OUT_RULE) or _firewall_rule_enabled(APP_FIREWALL_IN_RULE)
+    return False
 
 
 def set_adapter_state(adapter_name, enabled, app_path=None):
-    if not adapter_name and not app_path:
-        return {
-            "ok": False,
-            "message": "No adapter selected.",
-            "adapter": adapter_name,
-            "enabled": enabled,
-        }
-
-    if app_path:
-        firewall_result = set_firewall_paused(not enabled, app_path)
-        return {
-            **firewall_result,
-            "adapter": adapter_name,
-            "enabled": enabled,
-        }
-
-    state = "enabled" if enabled else "disabled"
-    result = _run_netsh(
-        "interface",
-        "set",
-        "interface",
-        f"name={adapter_name}",
-        f"admin={state}",
-    )
-
-    ok = result.returncode == 0
-    if ok:
-        message = f"{adapter_name} {state}."
-    elif not is_admin():
-        message = f"Could not set {adapter_name}. Run as Administrator."
-    else:
-        detail = (result.stderr or result.stdout or "").strip()
-        message = detail or f"Could not set {adapter_name}."
-
+    result = set_lag_state(not enabled)
     return {
-        "ok": ok,
-        "message": message,
+        **result,
         "adapter": adapter_name,
         "enabled": enabled,
-        "returncode": result.returncode,
+        "app_path": app_path or "",
     }

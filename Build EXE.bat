@@ -43,6 +43,16 @@ if %errorlevel%==0 (
     exit /b 1
 )
 
+echo Installing WinDivert packet driver files...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\Install-WinDivert.ps1"
+if not %errorlevel%==0 (
+    echo.
+    echo Failed to install WinDivert.
+    pause
+    exit /b 1
+)
+
+echo.
 echo Installing runtime requirements...
 %PYTHON_CMD% -m pip install -r "%REQUIREMENTS%"
 if not %errorlevel%==0 (

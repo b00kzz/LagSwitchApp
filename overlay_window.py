@@ -124,7 +124,7 @@ def run_overlay(base_url, token="", x=40, y=40):
                 label = "ERROR"
                 color = "#f87171"
             elif paused:
-                label = "PAUSED"
+                label = "LAGGING"
                 color = "#dc2626"
             else:
                 label = "READY"

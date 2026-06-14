@@ -1,8 +1,6 @@
 let currentStatus = null;
 let statusTimer = null;
 let currentLanguage = localStorage.getItem("laxyControlLanguage") || "th";
-let appOptions = [];
-let appSourceFilter = "all";
 
 const el = (id) => document.getElementById(id);
 const hotkeyOptions = [
@@ -42,17 +40,17 @@ const hotkeyOptions = [
 
 const translations = {
   en: {
-    subtitle: "Local network control",
+    subtitle: "Local lag control",
     language: "Language",
     checking: "Checking...",
     service: "Service",
-    networkState: "Network",
+    networkState: "Lag",
     hotkey: "Hotkey",
-    adapter: "Adapter",
+    adapter: "Profile",
     testControls: "Controls",
-    testControlsHelp: "Pause automatically restores after the time below.",
-    testPause: "Pause",
-    testRestore: "Restore",
+    testControlsHelp: "Lag automatically stops after the time below.",
+    testPause: "Start Lag",
+    testRestore: "Stop Lag",
     testToggle: "Toggle",
     showOverlay: "Overlay",
     closeOverlay: "Hide",
@@ -64,28 +62,17 @@ const translations = {
     mode: "Mode",
     modeToggle: "Toggle",
     modeHold: "Hold",
-    networkAdapter: "Network Adapter",
+    networkAdapter: "Network Adapter (not changed)",
     customAdapter: "Custom Adapter Name",
-    customAdapterPlaceholder: "Optional, if not listed",
-    blockScope: "Block Target",
-    blockScopeAll: "All network",
-    blockScopeApp: "Selected app",
-    adapterCutWarning: "All-network mode disables the selected adapter. Your own connection will drop briefly.",
-    appSelect: "Running App",
-    refreshApps: "Refresh Apps",
-    appPath: "App .exe Path",
-    appPathPlaceholder: "Select a running app or paste an .exe path",
-    appSearchPlaceholder: "Search app name, window title, exe, or path",
-    appFirewallUnavailable: "Per-app blocking is unavailable because Windows policy disables local firewall rules.",
-    appFilterAll: "All",
-    appFilterRunning: "Running",
-    appFilterShortcuts: "Shortcuts",
-    appFilterInstalled: "Installed",
-    appResults: "{shown} of {total} apps",
-    appSelected: "Selected",
-    appPid: "PID",
-    noApps: "No apps found. Try another search or paste the .exe path below.",
+    customAdapterPlaceholder: "Optional; kept for old configs",
+    blockScope: "Lag Target",
+    blockScopeAll: "All packets",
+    adapterCutWarning: "Lag mode adds delay and packet loss without disabling the adapter.",
     restoreDelay: "Auto restore",
+    lagDelay: "Delay",
+    lagJitter: "Jitter",
+    packetLoss: "Packet loss",
+    milliseconds: "ms",
     seconds: "sec",
     openUiOnStart: "Open Web UI on startup",
     showNotifications: "Show toast notifications",
@@ -94,7 +81,7 @@ const translations = {
     refreshAdapter: "Refresh",
     running: "Running",
     stopped: "Stopped",
-    paused: "Paused",
+    paused: "Lagging",
     readyState: "Ready",
     modeToggleShort: "toggle",
     modeHoldShort: "hold",
@@ -105,23 +92,23 @@ const translations = {
     saved: "saved",
     ready: "Ready.",
     settingsSaved: "Settings saved.",
-    confirmPause: "Pause network access now?",
-    confirmRestore: "Restore network access now?",
-    confirmToggle: "Toggle network state now?",
+    confirmPause: "Start lag now?",
+    confirmRestore: "Stop lag now?",
+    confirmToggle: "Toggle lag state now?",
     confirmShutdown: "Exit LaxyControl now?",
   },
   th: {
-    subtitle: "ควบคุมเครือข่ายในเครื่อง",
+    subtitle: "ควบคุมอาการ lag ในเครื่อง",
     language: "ภาษา",
     checking: "กำลังตรวจสอบ...",
     service: "บริการ",
-    networkState: "เครือข่าย",
+    networkState: "Lag",
     hotkey: "ปุ่มลัด",
-    adapter: "อะแดปเตอร์",
+    adapter: "โปรไฟล์",
     testControls: "ควบคุม",
-    testControlsHelp: "เมื่อพักเครือข่าย ระบบจะคืนค่าอัตโนมัติตามเวลาที่ตั้งไว้",
-    testPause: "พัก",
-    testRestore: "คืนค่า",
+    testControlsHelp: "เมื่อเริ่ม lag ระบบจะหยุดอัตโนมัติตามเวลาที่ตั้งไว้",
+    testPause: "เริ่ม Lag",
+    testRestore: "หยุด Lag",
     testToggle: "สลับ",
     showOverlay: "Overlay",
     closeOverlay: "ซ่อน",
@@ -133,21 +120,17 @@ const translations = {
     mode: "โหมด",
     modeToggle: "สลับ",
     modeHold: "กดค้าง",
-    networkAdapter: "อะแดปเตอร์เครือข่าย",
+    networkAdapter: "อะแดปเตอร์เครือข่าย (ไม่ถูกปิด)",
     customAdapter: "ชื่ออะแดปเตอร์เอง",
     customAdapterPlaceholder: "ใส่เองถ้าไม่มีในรายการ",
-    blockScope: "เป้าหมายที่ตัด",
-    blockScopeAll: "ตัดทั้งเครื่อง",
-    blockScopeApp: "ตัดเฉพาะแอพ",
-    adapterCutWarning: "โหมดตัดทั้งเครื่องจะปิด adapter ที่เลือก เครื่องคุณจะหลุดเน็ตชั่วคราว",
-    appSelect: "แอพที่กำลังรัน",
-    refreshApps: "รีเฟรชแอพ",
-    appPath: "Path ไฟล์ .exe",
-    appPathPlaceholder: "เลือกแอพที่รันอยู่ หรือวาง path .exe",
-    appSearchPlaceholder: "ค้นหาจากชื่อแอพหรือ path",
-    appFirewallUnavailable: "ตัดเฉพาะแอพใช้งานไม่ได้ เพราะ Windows policy ปิด local firewall rules",
-    noApps: "ไม่พบแอพที่มี path",
-    restoreDelay: "คืนค่าอัตโนมัติ",
+    blockScope: "เป้าหมาย Lag",
+    blockScopeAll: "ทุก packet",
+    adapterCutWarning: "โหมด Lag จะเพิ่ม delay และ packet loss โดยไม่ปิด adapter",
+    restoreDelay: "หยุดอัตโนมัติ",
+    lagDelay: "Delay",
+    lagJitter: "Jitter",
+    packetLoss: "Packet loss",
+    milliseconds: "ms",
     seconds: "วินาที",
     openUiOnStart: "เปิด Web UI ตอนเริ่มโปรแกรม",
     showNotifications: "แสดง toast notification",
@@ -156,7 +139,7 @@ const translations = {
     refreshAdapter: "รีเฟรช",
     running: "ทำงาน",
     stopped: "หยุด",
-    paused: "พักอยู่",
+    paused: "กำลัง Lag",
     readyState: "พร้อม",
     modeToggleShort: "สลับ",
     modeHoldShort: "กดค้าง",
@@ -167,9 +150,9 @@ const translations = {
     saved: "บันทึกไว้",
     ready: "พร้อมใช้งาน",
     settingsSaved: "บันทึกการตั้งค่าแล้ว",
-    confirmPause: "พักการเชื่อมต่อเครือข่ายตอนนี้?",
-    confirmRestore: "คืนค่าการเชื่อมต่อเครือข่ายตอนนี้?",
-    confirmToggle: "สลับสถานะเครือข่ายตอนนี้?",
+    confirmPause: "เริ่มทำให้ lag ตอนนี้?",
+    confirmRestore: "หยุด lag ตอนนี้?",
+    confirmToggle: "สลับสถานะ lag ตอนนี้?",
     confirmShutdown: "ออกจาก LaxyControl ตอนนี้?",
   },
 };
@@ -191,10 +174,24 @@ function restoreDelayValue() {
   return Math.min(60, Math.max(1.5, value));
 }
 
+function numberValue(id, fallback, min, max) {
+  const value = Number.parseFloat(el(id).value || `${fallback}`);
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, value));
+}
+
 function syncRestoreInputs(value) {
   const rounded = Number.parseFloat(value || 3).toFixed(1).replace(/\.0$/, "");
   el("restoreDelay").value = rounded;
   el("restoreDelayQuick").value = rounded;
+}
+
+function syncLagInputs(settings = {}) {
+  el("lagDelay").value = Math.round(Number(settings.lag_delay_ms ?? 120));
+  el("lagJitter").value = Math.round(Number(settings.lag_jitter_ms ?? 30));
+  el("lagLoss").value = Number(settings.lag_loss_percent ?? 4).toFixed(1).replace(/\.0$/, "");
 }
 
 function applyLanguage() {
@@ -247,13 +244,11 @@ function fillSettings(status) {
   el("hotkey").value = settings.hotkey || "f8";
   el("mode").value = settings.mode || "toggle";
   el("blockScope").value = settings.block_scope || "all";
-  el("appPath").value = settings.app_path || "";
   el("openUiOnStart").checked = Boolean(settings.open_ui_on_start);
   el("showNotifications").checked = Boolean(settings.show_notifications);
   el("overlayEnabled").checked = Boolean(settings.overlay_enabled);
   syncRestoreInputs(settings.restore_delay_seconds || status.max_pause_seconds || 3);
-  updateTargetFields();
-  fillApps(settings.app_path || "");
+  syncLagInputs(settings);
 
   const adapterSelect = el("adapter");
   const selected = settings.adapter || "";
@@ -282,14 +277,14 @@ function renderStatus(status) {
   el("networkStateValue").className = networkPaused ? "bad" : "ok";
   el("hotkeyState").textContent = `${status.settings.hotkey} (${modeLabel(status.settings.mode)})`;
 
-  if (status.settings.block_scope === "app") {
-    el("adapterState").textContent = status.selected_app_path || t("notSelected");
-  } else {
-    const adapterStatus = status.selected_adapter_status;
-    el("adapterState").textContent = adapterStatus
-      ? `${adapterStatus.name}: ${adapterStatus.admin_state}/${adapterStatus.state}`
-      : status.settings.adapter || t("notSelected");
-  }
+  const profile = status.active_lag_profile && Object.keys(status.active_lag_profile).length
+    ? status.active_lag_profile
+    : {
+        delay_ms: status.settings.lag_delay_ms,
+        jitter_ms: status.settings.lag_jitter_ms,
+        loss_percent: status.settings.lag_loss_percent,
+      };
+  el("adapterState").textContent = `${profile.delay_ms || 0}ms / ${profile.jitter_ms || 0}ms / ${profile.loss_percent || 0}%`;
 
   el("adminStatus").textContent = status.is_admin ? t("administrator") : t("notAdministrator");
   el("adminStatus").className = status.is_admin ? "ok" : "bad";
@@ -306,102 +301,21 @@ async function refreshStatus(fillForm = false) {
 }
 
 function collectSettingsPayload() {
-  const customAdapter = el("customAdapter").value.trim();
   return {
     hotkey: el("hotkey").value.trim(),
     mode: el("mode").value,
-    adapter: customAdapter || el("adapter").value,
+    adapter: "",
     block_scope: el("blockScope").value,
-    app_path: el("appPath").value.trim(),
+    app_path: "",
+    lag_delay_ms: numberValue("lagDelay", 120, 0, 5000),
+    lag_jitter_ms: numberValue("lagJitter", 30, 0, 5000),
+    lag_loss_percent: numberValue("lagLoss", 4, 0, 100),
+    lag_filter: "ip",
     open_ui_on_start: el("openUiOnStart").checked,
     show_notifications: el("showNotifications").checked,
     overlay_enabled: el("overlayEnabled").checked,
     restore_delay_seconds: restoreDelayValue(),
   };
-}
-
-function updateTargetFields() {
-  const appMode = el("blockScope").value === "app";
-  const appUnavailable = appMode && currentStatus && !currentStatus.local_firewall_rules_allowed;
-  document.querySelectorAll(".app-target").forEach((node) => {
-    node.hidden = !appMode;
-  });
-  el("adapterCutWarning").hidden = appMode;
-  el("appFirewallWarning").hidden = !appUnavailable;
-}
-
-function fillApps(selectedPath = "") {
-  const appList = el("appList");
-  const query = el("appSearch").value.trim().toLowerCase();
-  const filteredApps = appOptions
-    .filter((app) => appSourceFilter === "all" || (app.source || "").includes(appSourceFilter))
-    .filter((app) => !query || (app.search || `${app.name} ${app.path} ${app.pid || ""}`).toLowerCase().includes(query));
-  const visibleApps = filteredApps.slice(0, 160);
-  appList.innerHTML = "";
-  el("appSummary").textContent = t("appResults")
-    .replace("{shown}", visibleApps.length)
-    .replace("{total}", filteredApps.length);
-
-  if (!visibleApps.length) {
-    const empty = document.createElement("p");
-    empty.className = "app-empty";
-    empty.textContent = t("noApps");
-    appList.append(empty);
-    return;
-  }
-
-  for (const app of visibleApps) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `app-option ${app.path.toLowerCase() === selectedPath.toLowerCase() ? "selected" : ""}`;
-    button.dataset.path = app.path;
-    button.title = app.path;
-
-    const icon = document.createElement("span");
-    icon.className = "app-icon";
-    const image = document.createElement("img");
-    image.alt = "";
-    image.loading = "lazy";
-    image.src = `/api/app-icon?path=${encodeURIComponent(app.path)}`;
-    image.addEventListener("error", () => {
-      image.remove();
-      icon.textContent = (app.name || "?").slice(0, 1).toUpperCase();
-    });
-    icon.append(image);
-
-    const text = document.createElement("span");
-    text.className = "app-text";
-    const name = document.createElement("strong");
-    name.textContent = app.name;
-    const meta = document.createElement("em");
-    meta.textContent = [
-      app.pid ? `${t("appPid")} ${app.pid}` : "",
-      app.window_title && app.window_title !== app.name ? app.window_title : "",
-      app.source || "",
-    ].filter(Boolean).join(" - ");
-    const path = document.createElement("small");
-    path.textContent = app.path;
-    text.append(name);
-    if (meta.textContent) {
-      text.append(meta);
-    }
-    if (app.path.toLowerCase() === selectedPath.toLowerCase()) {
-      const selected = document.createElement("em");
-      selected.className = "app-selected-label";
-      selected.textContent = t("appSelected");
-      text.append(selected);
-    }
-    text.append(path);
-
-    button.append(icon, text);
-    appList.append(button);
-  }
-}
-
-async function refreshApps(selectedPath = el("appPath").value.trim()) {
-  const result = await api("/api/apps");
-  appOptions = result.apps || [];
-  fillApps(selectedPath);
 }
 
 async function saveSettings(silent = false) {
@@ -500,46 +414,12 @@ el("restoreDelay").addEventListener("input", () => {
   el("restoreDelayQuick").value = el("restoreDelay").value;
 });
 
-el("blockScope").addEventListener("change", updateTargetFields);
-
-el("appSearch").addEventListener("input", () => {
-  fillApps(el("appPath").value.trim());
-});
-
-el("appFilters").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-source-filter]");
-  if (!button) {
-    return;
-  }
-
-  appSourceFilter = button.dataset.sourceFilter || "all";
-  el("appFilters").querySelectorAll("[data-source-filter]").forEach((node) => {
-    node.classList.toggle("selected", node === button);
-  });
-  fillApps(el("appPath").value.trim());
-});
-
-el("appList").addEventListener("click", (event) => {
-  const option = event.target.closest(".app-option");
-  if (!option) {
-    return;
-  }
-  el("appPath").value = option.dataset.path || "";
-  fillApps(el("appPath").value.trim());
-  saveSettings(true)
-    .then(() => setResult({ ok: true, message: t("settingsSaved") }))
-    .catch((error) => setResult({ ok: false, message: error.message }));
-});
-
 el("restoreDelayQuick").addEventListener("change", () => {
   syncRestoreInputs(restoreDelayValue());
   saveSettings(true).catch((error) => setResult({ ok: false, message: error.message }));
 });
 
 el("refreshButton").addEventListener("click", () => refreshStatus(true));
-el("refreshAppsButton").addEventListener("click", () => {
-  refreshApps().catch((error) => setResult({ ok: false, message: error.message }));
-});
 
 el("settingsForm").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -554,5 +434,5 @@ el("settingsForm").addEventListener("submit", async (event) => {
 
 fillHotkeyOptions();
 applyLanguage();
-refreshApps().catch(() => undefined).finally(() => refreshStatus(true));
+refreshStatus(true);
 statusTimer = setInterval(() => refreshStatus(false), 1500);
