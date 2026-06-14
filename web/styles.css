@@ -211,6 +211,11 @@ p {
   background: var(--surface-soft);
 }
 
+.app-summary {
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .target-warning,
 .app-warning {
   padding: 9px 10px;
@@ -282,6 +287,10 @@ p {
   font-size: 11px;
   font-style: normal;
   font-weight: 800;
+}
+
+.app-text .app-selected-label {
+  color: var(--ok);
 }
 
 .app-text small,

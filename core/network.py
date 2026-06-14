@@ -226,11 +226,22 @@ def set_firewall_paused(paused, app_path=None):
     }
 
 
-def _csv_rows(command_text):
+def _csv_rows(command_text, timeout=8):
     command = ["powershell", "-NoProfile", "-Command", command_text]
-    result = subprocess.run(command, capture_output=True, creationflags=CREATE_NO_WINDOW, text=True)
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            creationflags=CREATE_NO_WINDOW,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+
     if result.returncode != 0 or not result.stdout.strip():
         return []
+
     return list(csv.DictReader(StringIO(result.stdout)))
 
 
@@ -257,10 +268,14 @@ def _append_app(rows, seen, name, path, source, pid="", window_title=""):
         sources = set(existing["source"].split(", "))
         sources.add(source)
         existing["source"] = ", ".join(sorted(sources))
-        if not existing.get("pid") and pid:
-            existing["pid"] = str(pid).strip()
-        if not existing.get("window_title") and window_title:
-            existing["window_title"] = str(window_title).strip()
+        if pid:
+            pids = {part.strip() for part in existing.get("pid", "").split(",") if part.strip()}
+            pids.add(str(pid).strip())
+            existing["pid"] = ", ".join(sorted(pids, key=lambda value: int(value) if value.isdigit() else value))
+        if window_title:
+            titles = {part.strip() for part in existing.get("window_title", "").split(" | ") if part.strip()}
+            titles.add(str(window_title).strip())
+            existing["window_title"] = " | ".join(sorted(titles))
         if existing["name"].lower().endswith(".exe") and not app_name.lower().endswith(".exe"):
             existing["name"] = app_name
         return
@@ -292,11 +307,20 @@ def _running_app_rows():
         ),
     ]
 
+    combined = []
+    seen = set()
     for command_text in command_texts:
-        rows = _csv_rows(command_text)
-        if rows:
-            return rows
-    return []
+        for row in _csv_rows(command_text):
+            key = (
+                str(row.get("ProcessId") or "").strip(),
+                str(row.get("ExecutablePath") or "").strip().lower(),
+            )
+            if not key[1] or key in seen:
+                continue
+            seen.add(key)
+            combined.append(row)
+
+    return combined
 
 
 def _shortcut_app_rows():
@@ -400,6 +424,7 @@ def app_rows():
         search_parts = [
             row.get("name", ""),
             row.get("window_title", ""),
+            row.get("pid", ""),
             row.get("path", ""),
             os.path.basename(row.get("path", "")),
             row.get("source", ""),

@@ -81,6 +81,9 @@ const translations = {
     appFilterRunning: "Running",
     appFilterShortcuts: "Shortcuts",
     appFilterInstalled: "Installed",
+    appResults: "{shown} of {total} apps",
+    appSelected: "Selected",
+    appPid: "PID",
     noApps: "No apps found. Try another search or paste the .exe path below.",
     restoreDelay: "Auto restore",
     seconds: "sec",
@@ -330,11 +333,14 @@ function updateTargetFields() {
 function fillApps(selectedPath = "") {
   const appList = el("appList");
   const query = el("appSearch").value.trim().toLowerCase();
-  const visibleApps = appOptions
+  const filteredApps = appOptions
     .filter((app) => appSourceFilter === "all" || (app.source || "").includes(appSourceFilter))
-    .filter((app) => !query || (app.search || `${app.name} ${app.path}`).toLowerCase().includes(query))
-    .slice(0, 120);
+    .filter((app) => !query || (app.search || `${app.name} ${app.path} ${app.pid || ""}`).toLowerCase().includes(query));
+  const visibleApps = filteredApps.slice(0, 160);
   appList.innerHTML = "";
+  el("appSummary").textContent = t("appResults")
+    .replace("{shown}", visibleApps.length)
+    .replace("{total}", filteredApps.length);
 
   if (!visibleApps.length) {
     const empty = document.createElement("p");
@@ -369,6 +375,7 @@ function fillApps(selectedPath = "") {
     name.textContent = app.name;
     const meta = document.createElement("em");
     meta.textContent = [
+      app.pid ? `${t("appPid")} ${app.pid}` : "",
       app.window_title && app.window_title !== app.name ? app.window_title : "",
       app.source || "",
     ].filter(Boolean).join(" - ");
@@ -377,6 +384,12 @@ function fillApps(selectedPath = "") {
     text.append(name);
     if (meta.textContent) {
       text.append(meta);
+    }
+    if (app.path.toLowerCase() === selectedPath.toLowerCase()) {
+      const selected = document.createElement("em");
+      selected.className = "app-selected-label";
+      selected.textContent = t("appSelected");
+      text.append(selected);
     }
     text.append(path);
 
@@ -419,6 +432,14 @@ async function persistQuickRestoreDelay() {
   }
 }
 
+async function persistActionSettings() {
+  if (!currentStatus) {
+    return;
+  }
+
+  await saveSettings(true);
+}
+
 async function runAction(action) {
   const confirmations = {
     pause: "confirmPause",
@@ -434,6 +455,7 @@ async function runAction(action) {
   try {
     if (action === "pause" || action === "toggle") {
       await persistQuickRestoreDelay();
+      await persistActionSettings();
     }
     const result = await api("/api/action", {
       method: "POST",
@@ -504,6 +526,9 @@ el("appList").addEventListener("click", (event) => {
   }
   el("appPath").value = option.dataset.path || "";
   fillApps(el("appPath").value.trim());
+  saveSettings(true)
+    .then(() => setResult({ ok: true, message: t("settingsSaved") }))
+    .catch((error) => setResult({ ok: false, message: error.message }));
 });
 
 el("restoreDelayQuick").addEventListener("change", () => {
