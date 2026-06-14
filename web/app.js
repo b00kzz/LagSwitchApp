@@ -4,6 +4,8 @@ let currentLanguage = localStorage.getItem("laxyControlLanguage") || "th";
 
 const el = (id) => document.getElementById(id);
 const hotkeyOptions = [
+  "t",
+  "g",
   "f6",
   "f7",
   "f8",
@@ -47,6 +49,7 @@ const translations = {
     networkState: "Network",
     hotkey: "Hotkey",
     adapter: "Adapter",
+    overlay: "Overlay",
     testControls: "Controls",
     testControlsHelp: "Pause automatically restores after the time below.",
     testPause: "Pause",
@@ -76,6 +79,8 @@ const translations = {
     stopped: "Stopped",
     paused: "Paused",
     readyState: "Ready",
+    visible: "Visible",
+    hidden: "Hidden",
     modeToggleShort: "toggle",
     modeHoldShort: "hold",
     administrator: "Administrator",
@@ -98,6 +103,7 @@ const translations = {
     networkState: "เครือข่าย",
     hotkey: "ปุ่มลัด",
     adapter: "อะแดปเตอร์",
+    overlay: "Overlay",
     testControls: "ควบคุม",
     testControlsHelp: "เมื่อพักเครือข่าย ระบบจะคืนค่าอัตโนมัติตามเวลาที่ตั้งไว้",
     testPause: "พัก",
@@ -127,6 +133,8 @@ const translations = {
     stopped: "หยุด",
     paused: "พักอยู่",
     readyState: "พร้อม",
+    visible: "กำลังแสดง",
+    hidden: "ซ่อนอยู่",
     modeToggleShort: "สลับ",
     modeHoldShort: "กดค้าง",
     administrator: "Administrator",
@@ -213,7 +221,7 @@ function setResult(result) {
 
 function fillSettings(status) {
   const settings = status.settings;
-  el("hotkey").value = settings.hotkey || "f8";
+  el("hotkey").value = settings.hotkey || "t";
   el("mode").value = settings.mode || "toggle";
   el("openUiOnStart").checked = Boolean(settings.open_ui_on_start);
   el("showNotifications").checked = Boolean(settings.show_notifications);
@@ -254,6 +262,8 @@ function renderStatus(status) {
 
   el("adminStatus").textContent = status.is_admin ? t("administrator") : t("notAdministrator");
   el("adminStatus").className = status.is_admin ? "ok" : "bad";
+  el("overlayState").textContent = status.overlay_visible ? t("visible") : t("hidden");
+  el("overlayState").className = status.overlay_visible ? "ok" : "";
 
   setResult(status.last_result || { ok: true, message: t("ready") });
 }

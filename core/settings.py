@@ -5,8 +5,8 @@ from core.paths import app_dir
 CONFIG_FILE = app_dir() / "config.json"
 
 DEFAULT_SETTINGS = {
-    "hotkey": "f8",
-    "mode": "hold",
+    "hotkey": "t",
+    "mode": "toggle",
     "adapter": "",
     "open_ui_on_start": True,
     "show_notifications": True,
@@ -23,8 +23,8 @@ def normalize_settings(settings):
     normalized = dict(DEFAULT_SETTINGS)
     normalized.update(settings or {})
 
-    normalized["hotkey"] = str(normalized.get("hotkey") or "f8").strip().lower()
-    mode = str(normalized.get("mode") or "hold").strip().lower()
+    normalized["hotkey"] = str(normalized.get("hotkey") or "t").strip().lower()
+    mode = str(normalized.get("mode") or "toggle").strip().lower()
     normalized["mode"] = "hold" if mode in ("hold", "2") else "toggle"
     normalized["adapter"] = str(normalized.get("adapter") or "").strip()
     normalized["open_ui_on_start"] = bool(normalized.get("open_ui_on_start"))

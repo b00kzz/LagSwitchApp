@@ -4,7 +4,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlencode
 
-from secure_browser import apply_content_protection, hide_from_taskbar
+from secure_browser import apply_content_protection, hide_from_taskbar, transparent_window_icon
 
 
 APP_NAME = "LaxyControl"
@@ -50,6 +50,7 @@ def run_overlay(base_url, token="", x=40, y=40):
                 | Qt.Tool
                 | Qt.FramelessWindowHint
             )
+            self.setWindowIcon(transparent_window_icon())
             self.setFixedSize(180, 92)
             self.move(x, y)
             self.setStyleSheet(
@@ -144,6 +145,7 @@ def run_overlay(base_url, token="", x=40, y=40):
             self.refresh()
 
     app = QApplication(sys.argv[:1])
+    app.setWindowIcon(transparent_window_icon())
     window = OverlayWindow()
     window.show()
     return app.exec()

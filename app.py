@@ -550,8 +550,13 @@ def main():
         signal.signal(signal.SIGTERM, handle_signal)
 
     app.start()
-    while not app.stop_event.is_set():
-        time.sleep(0.25)
+    if sys.platform == "win32":
+        from tray_controller import run_tray
+
+        run_tray(app)
+    else:
+        while not app.stop_event.is_set():
+            time.sleep(0.25)
 
 
 if __name__ == "__main__":

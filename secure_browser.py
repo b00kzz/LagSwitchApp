@@ -60,9 +60,18 @@ def icon_path():
     return local_icon if local_icon.exists() else None
 
 
+def transparent_window_icon():
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QIcon, QPixmap
+
+    pixmap = QPixmap(32, 32)
+    pixmap.fill(Qt.transparent)
+    return QIcon(pixmap)
+
+
 def run_secure_browser(url, allowed_hosts):
     from PySide6.QtCore import Qt, QTimer, QUrl
-    from PySide6.QtGui import QIcon, QKeySequence, QShortcut
+    from PySide6.QtGui import QKeySequence, QShortcut
     from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox
     from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineSettings
     from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -94,9 +103,7 @@ def run_secure_browser(url, allowed_hosts):
             self.setWindowTitle(APP_NAME)
             self.resize(1100, 780)
             self.setContextMenuPolicy(Qt.NoContextMenu)
-            app_icon = icon_path()
-            if app_icon:
-                self.setWindowIcon(QIcon(str(app_icon)))
+            self.setWindowIcon(transparent_window_icon())
 
             self.view = QWebEngineView(self)
             self.view.setContextMenuPolicy(Qt.NoContextMenu)
@@ -153,6 +160,7 @@ def run_secure_browser(url, allowed_hosts):
             apply_content_protection(hwnd)
 
     app = QApplication(sys.argv[:1])
+    app.setWindowIcon(transparent_window_icon())
     window = SecureWindow()
     window.show()
     return app.exec()
