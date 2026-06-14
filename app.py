@@ -330,12 +330,15 @@ class LaxyControlApp:
 
     def status(self):
         adapter = self.selected_adapter()
+        internet = network.internet_status()
         return {
             "service_running": self.service_running,
             "is_admin": network.is_admin(),
             "settings": self.settings,
             "adapters": network.adapter_rows(),
             "selected_adapter_status": network.adapter_status(adapter),
+            "internet_connected": internet["connected"],
+            "internet_status": internet,
             "network_paused": self.network_paused,
             "max_pause_seconds": self.restore_delay_seconds(),
             "hotkeys_running": self.hotkeys.running,
@@ -435,16 +438,17 @@ class LaxyControlApp:
                     self.send_error(403)
                     return
 
-                if self.path == "/api/status":
+                route = self.parsed_path().path
+                if route == "/api/status":
                     self.send_json(app.status())
                     return
 
-                if self.path == "/api/open-ui":
+                if route == "/api/open-ui":
                     app.open_ui()
                     self.send_json({"ok": True})
                     return
 
-                requested = self.path.split("?", 1)[0]
+                requested = route
                 if requested in ("", "/"):
                     requested = "/index.html"
                 safe = unquote(requested).lstrip("/")

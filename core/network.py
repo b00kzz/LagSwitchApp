@@ -1,5 +1,7 @@
 import ctypes
+import socket
 import subprocess
+import time
 
 
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -7,6 +9,21 @@ FIREWALL_GROUP = "LaxyControl Rules"
 FIREWALL_OUT_RULE = "LaxyControl Pause Outbound"
 FIREWALL_IN_RULE = "LaxyControl Pause Inbound"
 FIREWALL_READY = False
+INTERNET_CHECK_TARGETS = (
+    ("1.1.1.1", 443),
+    ("8.8.8.8", 443),
+    ("www.msftconnecttest.com", 80),
+)
+INTERNET_CHECK_TTL_SECONDS = 0.5
+_INTERNET_STATUS_CACHE = {
+    "checked_at": 0.0,
+    "status": {
+        "connected": False,
+        "message": "Internet status not checked yet.",
+        "target": None,
+        "latency_ms": None,
+    },
+}
 
 
 def is_admin():
@@ -118,6 +135,40 @@ def set_firewall_paused(paused):
         "returncode": 0,
         "method": "firewall",
     }
+
+
+def internet_status(timeout=0.25, force=False):
+    now = time.monotonic()
+    cached = _INTERNET_STATUS_CACHE["status"]
+    if not force and now - _INTERNET_STATUS_CACHE["checked_at"] < INTERNET_CHECK_TTL_SECONDS:
+        return dict(cached)
+
+    last_error = ""
+    for host, port in INTERNET_CHECK_TARGETS:
+        started = time.monotonic()
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                latency_ms = round((time.monotonic() - started) * 1000)
+                status = {
+                    "connected": True,
+                    "message": "Internet reachable.",
+                    "target": f"{host}:{port}",
+                    "latency_ms": latency_ms,
+                }
+                break
+        except OSError as exc:
+            last_error = str(exc)
+    else:
+        status = {
+            "connected": False,
+            "message": last_error or "Internet unreachable.",
+            "target": None,
+            "latency_ms": None,
+        }
+
+    _INTERNET_STATUS_CACHE["checked_at"] = time.monotonic()
+    _INTERNET_STATUS_CACHE["status"] = status
+    return dict(status)
 
 def adapter_rows():
     result = _run_netsh("interface", "show", "interface")

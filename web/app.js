@@ -76,6 +76,7 @@ const translations = {
     stopped: "Stopped",
     paused: "Paused",
     readyState: "Ready",
+    noInternet: "No Internet",
     modeToggleShort: "toggle",
     modeHoldShort: "hold",
     administrator: "Administrator",
@@ -127,6 +128,7 @@ const translations = {
     stopped: "หยุด",
     paused: "พักอยู่",
     readyState: "พร้อม",
+    noInternet: "No Internet",
     modeToggleShort: "สลับ",
     modeHoldShort: "กดค้าง",
     administrator: "Administrator",
@@ -243,8 +245,17 @@ function renderStatus(status) {
   currentStatus = status;
   el("serviceState").textContent = status.service_running ? t("running") : t("stopped");
   const networkPaused = Boolean(status.network_paused);
-  el("networkStateValue").textContent = networkPaused ? t("paused") : t("readyState");
-  el("networkStateValue").className = networkPaused ? "bad" : "ok";
+  const internetConnected = Boolean(status.internet_connected);
+  if (networkPaused) {
+    el("networkStateValue").textContent = t("paused");
+    el("networkStateValue").className = "bad";
+  } else if (internetConnected) {
+    el("networkStateValue").textContent = t("readyState");
+    el("networkStateValue").className = "ok";
+  } else {
+    el("networkStateValue").textContent = t("noInternet");
+    el("networkStateValue").className = "warn";
+  }
   el("hotkeyState").textContent = `${status.settings.hotkey} (${modeLabel(status.settings.mode)})`;
 
   const adapterStatus = status.selected_adapter_status;

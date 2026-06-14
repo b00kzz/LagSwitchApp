@@ -8,6 +8,13 @@ from secure_browser import apply_content_protection, hide_from_taskbar
 
 
 APP_NAME = "LaxyControl"
+STATUS_STYLES = {
+    "online": "background: #052e16; color: #86efac;",
+    "paused": "background: #450a0a; color: #fca5a5;",
+    "no_internet": "background: #431407; color: #fdba74;",
+    "offline": "background: #3f1d1d; color: #f87171;",
+    "checking": "background: #172554; color: #bfdbfe;",
+}
 
 
 def api_request(base_url, path, token="", payload=None):
@@ -104,23 +111,36 @@ def run_overlay(base_url, token="", x=40, y=40):
                 event.accept()
 
         def refresh(self):
+            self.status.setText(f"{APP_NAME} CHECKING")
+            self.status.setStyleSheet(STATUS_STYLES["checking"])
             try:
                 status = api_request(base_url, "/api/status", token)
             except (OSError, urllib.error.URLError, json.JSONDecodeError):
                 self.status.setText(f"{APP_NAME} OFFLINE")
-                self.status.setStyleSheet("color: #f87171;")
+                self.status.setStyleSheet(STATUS_STYLES["offline"])
                 return
 
             paused = bool(status.get("network_paused"))
-            self.status.setText(f"{APP_NAME} {'PAUSED' if paused else 'READY'}")
-            self.status.setStyleSheet(f"color: {'#dc2626' if paused else '#16a34a'};")
+            internet_connected = bool(status.get("internet_connected"))
+            if paused:
+                label = "PAUSED"
+                style = STATUS_STYLES["paused"]
+            elif internet_connected:
+                label = "ONLINE"
+                style = STATUS_STYLES["online"]
+            else:
+                label = "NO INTERNET"
+                style = STATUS_STYLES["no_internet"]
+
+            self.status.setText(f"{APP_NAME} {label}")
+            self.status.setStyleSheet(style)
 
         def toggle_network(self):
             try:
                 api_request(base_url, "/api/action", token, {"action": "toggle"})
             except (OSError, urllib.error.URLError, json.JSONDecodeError):
                 self.status.setText(f"{APP_NAME} ERROR")
-                self.status.setStyleSheet("color: #f87171;")
+                self.status.setStyleSheet(STATUS_STYLES["offline"])
             self.refresh()
 
     app = QApplication(sys.argv[:1])

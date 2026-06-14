@@ -10,6 +10,7 @@
   --danger: #dc2626;
   --danger-soft: #fef2f2;
   --ok: #16a34a;
+  --warn: #ea580c;
   --radius: 8px;
   --shadow: 0 16px 36px rgba(17, 24, 39, 0.08);
 }
@@ -305,6 +306,10 @@ select:focus {
 
 .bad {
   color: var(--danger);
+}
+
+.warn {
+  color: var(--warn);
 }
 
 @media (max-width: 360px) {
