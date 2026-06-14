@@ -65,6 +65,9 @@ const translations = {
     mode: "Mode",
     modeToggle: "Toggle",
     modeHold: "Hold",
+    pauseBehavior: "Pause behavior",
+    pauseBehaviorFull: "Full pause",
+    pauseBehaviorSoftLag: "Soft lag",
     networkAdapter: "Network Adapter",
     customAdapter: "Custom Adapter Name",
     customAdapterPlaceholder: "Optional, if not listed",
@@ -94,6 +97,7 @@ const translations = {
     confirmRestore: "Restore network access now?",
     confirmToggle: "Toggle network state now?",
     confirmShutdown: "Exit LaxyControl now?",
+    softLagSuffix: "soft lag",
   },
   th: {
     subtitle: "ควบคุมเครือข่ายในเครื่อง",
@@ -119,6 +123,9 @@ const translations = {
     mode: "โหมด",
     modeToggle: "สลับ",
     modeHold: "กดค้าง",
+    pauseBehavior: "รูปแบบการพัก",
+    pauseBehaviorFull: "พักเต็ม",
+    pauseBehaviorSoftLag: "Soft lag",
     networkAdapter: "อะแดปเตอร์เครือข่าย",
     customAdapter: "ชื่ออะแดปเตอร์เอง",
     customAdapterPlaceholder: "ใส่เองถ้าไม่มีในรายการ",
@@ -148,6 +155,7 @@ const translations = {
     confirmRestore: "คืนค่าการเชื่อมต่อเครือข่ายตอนนี้?",
     confirmToggle: "สลับสถานะเครือข่ายตอนนี้?",
     confirmShutdown: "ออกจาก LaxyControl ตอนนี้?",
+    softLagSuffix: "soft lag",
   },
 };
 
@@ -223,6 +231,7 @@ function fillSettings(status) {
   const settings = status.settings;
   el("hotkey").value = settings.hotkey || "t";
   el("mode").value = settings.mode || "toggle";
+  el("pauseBehavior").value = settings.pause_behavior || "full";
   el("openUiOnStart").checked = Boolean(settings.open_ui_on_start);
   el("showNotifications").checked = Boolean(settings.show_notifications);
   el("overlayEnabled").checked = Boolean(settings.overlay_enabled);
@@ -251,7 +260,8 @@ function renderStatus(status) {
   currentStatus = status;
   el("serviceState").textContent = status.service_running ? t("running") : t("stopped");
   const networkPaused = Boolean(status.network_paused);
-  el("networkStateValue").textContent = networkPaused ? t("paused") : t("readyState");
+  const pausedLabel = status.pause_method === "soft_lag" ? `${t("paused")} (${t("softLagSuffix")})` : t("paused");
+  el("networkStateValue").textContent = networkPaused ? pausedLabel : t("readyState");
   el("networkStateValue").className = networkPaused ? "bad" : "ok";
   el("hotkeyState").textContent = `${status.settings.hotkey} (${modeLabel(status.settings.mode)})`;
 
@@ -281,6 +291,7 @@ function collectSettingsPayload() {
   return {
     hotkey: el("hotkey").value.trim(),
     mode: el("mode").value,
+    pause_behavior: el("pauseBehavior").value,
     adapter: customAdapter || el("adapter").value,
     open_ui_on_start: el("openUiOnStart").checked,
     show_notifications: el("showNotifications").checked,

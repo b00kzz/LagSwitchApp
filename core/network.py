@@ -119,6 +119,70 @@ def set_firewall_paused(paused):
         "method": "firewall",
     }
 
+
+def _set_firewall_rules_enabled(rule_names, enabled):
+    ensure = _ensure_firewall_rules()
+    if ensure.returncode != 0:
+        return {
+            "ok": False,
+            "message": (ensure.stderr or ensure.stdout or "Could not prepare firewall rules.").strip(),
+            "returncode": ensure.returncode,
+        }
+
+    enabled_value = "yes" if enabled else "no"
+    results = [
+        _run_netsh(
+            "advfirewall",
+            "firewall",
+            "set",
+            "rule",
+            f"name={rule_name}",
+            "new",
+            f"enable={enabled_value}",
+        )
+        for rule_name in rule_names
+    ]
+
+    failed = next((result for result in results if result.returncode != 0), None)
+    if failed:
+        return {
+            "ok": False,
+            "message": (failed.stderr or failed.stdout or "Could not update firewall rules.").strip(),
+            "returncode": failed.returncode,
+        }
+
+    return {"ok": True, "returncode": 0}
+
+
+def set_soft_lag_paused(paused):
+    if paused:
+        outbound_result = _set_firewall_rules_enabled((FIREWALL_OUT_RULE,), False)
+        if not outbound_result["ok"]:
+            return outbound_result
+
+        inbound_result = _set_firewall_rules_enabled((FIREWALL_IN_RULE,), True)
+        if not inbound_result["ok"]:
+            return inbound_result
+
+        return {
+            "ok": True,
+            "message": "Soft lag enabled with inbound firewall rule.",
+            "returncode": 0,
+            "method": "soft_lag",
+        }
+
+    restore_result = _set_firewall_rules_enabled((FIREWALL_IN_RULE, FIREWALL_OUT_RULE), False)
+    if not restore_result["ok"]:
+        return restore_result
+
+    return {
+        "ok": True,
+        "message": "Soft lag restored.",
+        "returncode": 0,
+        "method": "soft_lag",
+    }
+
+
 def adapter_rows():
     result = _run_netsh("interface", "show", "interface")
     rows = []

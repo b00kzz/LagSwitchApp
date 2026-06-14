@@ -101,6 +101,14 @@
         </div>
 
         <div class="field">
+          <label for="pauseBehavior" data-i18n="pauseBehavior">Pause behavior</label>
+          <select id="pauseBehavior" name="pauseBehavior">
+            <option value="full" data-i18n="pauseBehaviorFull">Full pause</option>
+            <option value="soft_lag" data-i18n="pauseBehaviorSoftLag">Soft lag</option>
+          </select>
+        </div>
+
+        <div class="field">
           <label for="restoreDelay" data-i18n="restoreDelay">Auto restore</label>
           <div class="inline-input">
             <input id="restoreDelay" name="restoreDelay" type="number" min="0.2" max="60" step="0.1" inputmode="decimal">

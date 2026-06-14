@@ -14,6 +14,7 @@ DEFAULT_SETTINGS = {
     "overlay_x": 40,
     "overlay_y": 40,
     "restore_delay_seconds": 3.0,
+    "pause_behavior": "full",
     "secure_browser_enabled": True,
     "secure_browser_allowed_hosts": ["127.0.0.1", "localhost"],
 }
@@ -31,6 +32,8 @@ def normalize_settings(settings):
     normalized["show_notifications"] = bool(normalized.get("show_notifications"))
     normalized["overlay_enabled"] = bool(normalized.get("overlay_enabled"))
     normalized["secure_browser_enabled"] = bool(normalized.get("secure_browser_enabled"))
+    pause_behavior = str(normalized.get("pause_behavior") or "full").strip().lower()
+    normalized["pause_behavior"] = "soft_lag" if pause_behavior in ("soft_lag", "soft", "lag") else "full"
     try:
         restore_delay = float(normalized.get("restore_delay_seconds", DEFAULT_SETTINGS["restore_delay_seconds"]))
     except (TypeError, ValueError):

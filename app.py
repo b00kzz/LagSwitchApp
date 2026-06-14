@@ -146,6 +146,7 @@ class LaxyControlApp:
         self.ui_token = secrets.token_urlsafe(32)
         write_ui_token(self.ui_token)
         self.network_paused = False
+        self.pause_method = None
         self.pause_generation = 0
         self.pause_timer = None
         self.service_running = True
@@ -243,6 +244,9 @@ class LaxyControlApp:
         except (TypeError, ValueError):
             return MAX_PAUSE_SECONDS
 
+    def pause_behavior(self):
+        return self.settings.get("pause_behavior", "full")
+
     def cancel_pause_timer(self):
         if self.pause_timer:
             self.pause_timer.cancel()
@@ -275,10 +279,14 @@ class LaxyControlApp:
                 self.set_last_result(True, f"{APP_NAME} network already paused.", source=source)
                 return self.last_result
 
-        result = network.set_adapter_state(self.selected_adapter(), False)
+        if self.pause_behavior() == "soft_lag":
+            result = network.set_soft_lag_paused(True)
+        else:
+            result = network.set_adapter_state(self.selected_adapter(), False)
         with self.lock:
             if result["ok"]:
                 self.network_paused = True
+                self.pause_method = result.get("method")
                 self.pause_generation += 1
                 self.schedule_pause_timeout()
         self.set_last_result(result["ok"], result["message"], source=source)
@@ -286,10 +294,17 @@ class LaxyControlApp:
 
     def restore_network(self, source="manual"):
         self.write_audit("action_requested", action="restore_network", source=source, adapter=self.selected_adapter())
-        result = network.set_adapter_state(self.selected_adapter(), True)
+        with self.lock:
+            pause_method = self.pause_method
+
+        if pause_method == "soft_lag":
+            result = network.set_soft_lag_paused(False)
+        else:
+            result = network.set_adapter_state(self.selected_adapter(), True)
         with self.lock:
             if result["ok"]:
                 self.network_paused = False
+                self.pause_method = None
                 self.pause_generation += 1
                 self.cancel_pause_timer()
         self.set_last_result(result["ok"], result["message"], source=source)
@@ -317,6 +332,7 @@ class LaxyControlApp:
                 "overlay_x",
                 "overlay_y",
                 "restore_delay_seconds",
+                "pause_behavior",
             ):
                 if key in data:
                     updated[key] = data[key]
@@ -344,6 +360,7 @@ class LaxyControlApp:
             "adapters": network.adapter_rows(),
             "selected_adapter_status": network.adapter_status(adapter),
             "network_paused": self.network_paused,
+            "pause_method": self.pause_method,
             "max_pause_seconds": self.restore_delay_seconds(),
             "hotkeys_running": self.hotkeys.running,
             "hotkey_backend": self.hotkeys.backend,
@@ -358,9 +375,14 @@ class LaxyControlApp:
         with self.lock:
             active = self.network_paused
         if active:
+            if self.pause_method == "soft_lag":
+                network.set_soft_lag_paused(False)
+            else:
+                network.set_adapter_state(self.selected_adapter(), True)
             network.set_firewall_paused(False)
             with self.lock:
                 self.network_paused = False
+                self.pause_method = None
         self.hotkeys.stop()
         self.overlay.stop()
         if self.ui_process and self.ui_process.poll() is None:
