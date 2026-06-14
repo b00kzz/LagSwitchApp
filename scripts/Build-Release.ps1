@@ -16,12 +16,8 @@ Write-Host "Installing build requirements..."
 Write-Host "Building LaxyControl as a single-file executable..."
 & $Python -m PyInstaller --clean --noconfirm build\LaxyControl.spec
 
-Write-Host "Generating release hashes..."
-& powershell -NoProfile -File scripts\Generate-Hashes.ps1
-
-Write-Host "Preparing portable folder..."
+Write-Host "Preparing single-file release..."
 & powershell -NoProfile -File scripts\Prepare-Portable.ps1
 
-Write-Host "Build complete: dist\LaxyControl.exe"
-Write-Host "Portable folder: release\LaxyControl-Portable"
+Write-Host "Build complete: release\LaxyControl.exe"
 Write-Host "Runtime config and audit files will be created next to the executable when it runs."

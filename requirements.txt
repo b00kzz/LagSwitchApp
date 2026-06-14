@@ -1,2 +1,3 @@
 keyboard
+PySide6
 win10toast

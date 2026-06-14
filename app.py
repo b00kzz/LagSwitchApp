@@ -1,12 +1,16 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.cookies import SimpleCookie
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import parse_qs, urlencode, unquote, urlparse
 import ctypes
 import json
 import mimetypes
 import os
+import secrets
 import signal
 import socket
+import subprocess
+import sys
 import threading
 import time
 import webbrowser
@@ -27,7 +31,50 @@ BUNDLE_DIR = bundle_dir()
 WEB_ROOT = BUNDLE_DIR / "web"
 APP_NAME = "LaxyControl"
 AUDIT_LOG = APP_DIR / "audit.log"
+UI_TOKEN_FILE = APP_DIR / ".secure-ui-token"
+MAX_PAUSE_SECONDS = 3.0
 MUTEX_HANDLE = None
+
+
+def write_ui_token(token):
+    try:
+        UI_TOKEN_FILE.write_text(token, encoding="utf-8")
+    except OSError:
+        pass
+
+
+def read_ui_token():
+    try:
+        return UI_TOKEN_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def secure_ui_url(token):
+    url = f"http://{HOST}:{PORT}"
+    if token:
+        return f"{url}/?{urlencode({'ui_token': token})}"
+    return url
+
+
+def launch_secure_browser(url, allowed_hosts):
+    allowed = ",".join(str(host).strip() for host in allowed_hosts if str(host).strip())
+    if getattr(sys, "frozen", False):
+        command = [sys.executable, "--secure-browser", url, allowed]
+    else:
+        command = [sys.executable, str(Path(__file__).resolve()), "--secure-browser", url, allowed]
+
+    subprocess.Popen(command, cwd=str(APP_DIR), close_fds=True)
+
+
+def launch_overlay_process(token, x, y):
+    url = f"http://{HOST}:{PORT}"
+    if getattr(sys, "frozen", False):
+        command = [sys.executable, "--overlay", url, token, str(x), str(y)]
+    else:
+        command = [sys.executable, str(Path(__file__).resolve()), "--overlay", url, token, str(x), str(y)]
+
+    return subprocess.Popen(command, cwd=str(APP_DIR), close_fds=True)
 
 
 def acquire_single_instance():
@@ -63,104 +110,44 @@ def service_is_running():
 class OverlayController:
     def __init__(self, app):
         self.app = app
-        self.root = None
-        self.label = None
-        self.thread = None
-        self.running = False
+        self.process = None
         self.visible = False
 
     def start(self):
-        if self.running:
-            return True
-
-        self.thread = threading.Thread(target=self._run, daemon=True)
-        self.thread.start()
+        if self.app.settings.get("overlay_enabled"):
+            self.show()
         return True
 
-    def _run(self):
-        try:
-            import tkinter as tk
-        except Exception as exc:
-            self.app.set_last_result(False, f"Overlay unavailable: {exc}")
-            return
-
-        self.root = tk.Tk()
-        self.root.withdraw()
-        self.root.title(APP_NAME)
-        self.root.geometry(
-            f"180x92+{self.app.settings.get('overlay_x', 40)}+{self.app.settings.get('overlay_y', 40)}"
-        )
-        self.root.resizable(False, False)
-        self.root.attributes("-topmost", True)
-        try:
-            self.root.attributes("-toolwindow", True)
-        except Exception:
-            pass
-        self.root.configure(bg="#111827")
-        self.root.protocol("WM_DELETE_WINDOW", self.close)
-
-        self.label = tk.Label(
-            self.root,
-            text=f"{APP_NAME} OFF",
-            fg="#ffffff",
-            bg="#111827",
-            font=("Segoe UI", 13, "bold"),
-        )
-        self.label.pack(pady=(14, 8))
-
-        button = tk.Button(
-            self.root,
-            text="Toggle",
-            command=lambda: self.app.toggle("overlay button"),
-            relief="flat",
-            bg="#2563eb",
-            fg="#ffffff",
-            activebackground="#1d4ed8",
-            activeforeground="#ffffff",
-        )
-        button.pack(ipadx=16, ipady=4)
-
-        self.running = True
-        if self.app.settings.get("overlay_enabled"):
-            self.visible = True
-            self.root.deiconify()
-        else:
-            self.visible = False
-
-        self._tick()
-        self.root.mainloop()
-        self.running = False
-
-    def _tick(self):
-        if not self.root:
-            return
-
-        state = "PAUSED" if self.app.network_paused else "READY"
-        color = "#dc2626" if self.app.network_paused else "#16a34a"
-        if self.label:
-            self.label.configure(text=f"{APP_NAME} {state}", fg=color)
-
-        self.root.after(500, self._tick)
-
     def show(self):
+        if self.process and self.process.poll() is None:
+            self.visible = True
+            return
+
+        self.process = launch_overlay_process(
+            self.app.ui_token if self.app.settings.get("secure_browser_enabled") else "",
+            self.app.settings.get("overlay_x", 40),
+            self.app.settings.get("overlay_y", 40),
+        )
         self.visible = True
-        if self.root:
-            self.root.after(0, self.root.deiconify)
 
     def close(self):
         self.visible = False
-        if self.root:
-            self.root.after(0, self.root.withdraw)
+        if self.process and self.process.poll() is None:
+            self.process.terminate()
+        self.process = None
 
     def stop(self):
-        if self.root:
-            self.root.after(0, self.root.destroy)
+        self.close()
 
 
 class LaxyControlApp:
     def __init__(self):
         self.settings = load_settings()
+        self.ui_token = secrets.token_urlsafe(32)
+        write_ui_token(self.ui_token)
         self.network_paused = False
+        self.pause_generation = 0
+        self.pause_timer = None
         self.service_running = True
         self.last_result = {"ok": True, "message": "Service started."}
         self.lock = threading.RLock()
@@ -234,10 +221,39 @@ class LaxyControlApp:
         return ok
 
     def open_ui(self):
-        webbrowser.open(f"http://{HOST}:{PORT}")
+        url = secure_ui_url(self.ui_token if self.settings.get("secure_browser_enabled") else "")
+        if self.settings.get("secure_browser_enabled"):
+            launch_secure_browser(url, self.settings.get("secure_browser_allowed_hosts"))
+            return
+        webbrowser.open(url)
 
     def selected_adapter(self):
         return self.settings.get("adapter", "").strip()
+
+    def cancel_pause_timer(self):
+        if self.pause_timer:
+            self.pause_timer.cancel()
+            self.pause_timer = None
+
+    def schedule_pause_timeout(self):
+        self.cancel_pause_timer()
+        generation = self.pause_generation
+        timer = threading.Timer(MAX_PAUSE_SECONDS, self.restore_after_pause_timeout, args=(generation,))
+        timer.daemon = True
+        self.pause_timer = timer
+        timer.start()
+
+    def restore_after_pause_timeout(self, generation):
+        with self.lock:
+            if not self.network_paused or generation != self.pause_generation:
+                return
+
+        self.write_audit(
+            "pause_timeout",
+            seconds=MAX_PAUSE_SECONDS,
+            adapter=self.selected_adapter(),
+        )
+        self.restore_network(f"auto restore after {MAX_PAUSE_SECONDS:g}s limit")
 
     def pause_network(self, source="manual"):
         self.write_audit("action_requested", action="pause_network", source=source, adapter=self.selected_adapter())
@@ -250,6 +266,8 @@ class LaxyControlApp:
         with self.lock:
             if result["ok"]:
                 self.network_paused = True
+                self.pause_generation += 1
+                self.schedule_pause_timeout()
         self.set_last_result(result["ok"], result["message"], source=source)
         return result
 
@@ -259,6 +277,8 @@ class LaxyControlApp:
         with self.lock:
             if result["ok"]:
                 self.network_paused = False
+                self.pause_generation += 1
+                self.cancel_pause_timer()
         self.set_last_result(result["ok"], result["message"], source=source)
         return result
 
@@ -305,7 +325,9 @@ class LaxyControlApp:
             "adapters": network.adapter_rows(),
             "selected_adapter_status": network.adapter_status(adapter),
             "network_paused": self.network_paused,
+            "max_pause_seconds": MAX_PAUSE_SECONDS,
             "hotkeys_running": self.hotkeys.running,
+            "hotkey_backend": self.hotkeys.backend,
             "overlay_visible": self.overlay.visible,
             "last_result": self.last_result,
         }
@@ -313,6 +335,7 @@ class LaxyControlApp:
     def shutdown(self):
         self.service_running = False
         self.stop_event.set()
+        self.cancel_pause_timer()
         with self.lock:
             active = self.network_paused
         if active:
@@ -321,6 +344,11 @@ class LaxyControlApp:
                 self.network_paused = False
         self.hotkeys.stop()
         self.overlay.stop()
+        if read_ui_token() == self.ui_token:
+            try:
+                UI_TOKEN_FILE.unlink()
+            except OSError:
+                pass
         if self.httpd:
             threading.Thread(target=self.httpd.shutdown, daemon=True).start()
 
@@ -333,6 +361,7 @@ class LaxyControlApp:
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.send_header("Content-Length", str(len(encoded)))
+                self.maybe_set_ui_cookie()
                 self.end_headers()
                 self.wfile.write(encoded)
 
@@ -351,8 +380,37 @@ class LaxyControlApp:
                 self.send_response(200)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(data)))
+                self.maybe_set_ui_cookie()
                 self.end_headers()
                 self.wfile.write(data)
+
+            def parsed_path(self):
+                return urlparse(self.path)
+
+            def request_ui_token(self):
+                query = parse_qs(self.parsed_path().query)
+                token = query.get("ui_token", [""])[0]
+                if token:
+                    return token
+
+                cookie = SimpleCookie()
+                cookie.load(self.headers.get("Cookie", ""))
+                morsel = cookie.get("laxy_ui_token")
+                return morsel.value if morsel else ""
+
+            def ui_authorized(self):
+                if not app.settings.get("secure_browser_enabled"):
+                    return True
+                return secrets.compare_digest(self.request_ui_token(), app.ui_token)
+
+            def maybe_set_ui_cookie(self):
+                parsed = self.parsed_path()
+                query_token = parse_qs(parsed.query).get("ui_token", [""])[0]
+                if query_token and secrets.compare_digest(query_token, app.ui_token):
+                    self.send_header(
+                        "Set-Cookie",
+                        f"laxy_ui_token={app.ui_token}; Path=/; SameSite=Strict; HttpOnly",
+                    )
 
             def read_json(self):
                 length = int(self.headers.get("Content-Length", "0"))
@@ -361,6 +419,10 @@ class LaxyControlApp:
                 return json.loads(self.rfile.read(length).decode("utf-8"))
 
             def do_GET(self):
+                if not self.ui_authorized():
+                    self.send_error(403)
+                    return
+
                 if self.path == "/api/status":
                     self.send_json(app.status())
                     return
@@ -381,6 +443,10 @@ class LaxyControlApp:
                 self.send_file(path)
 
             def do_POST(self):
+                if not self.ui_authorized():
+                    self.send_error(403)
+                    return
+
                 try:
                     data = self.read_json()
                 except json.JSONDecodeError:
@@ -424,13 +490,42 @@ class LaxyControlApp:
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--secure-browser":
+        from secure_browser import run_secure_browser
+
+        target_url = sys.argv[2] if len(sys.argv) > 2 else f"http://{HOST}:{PORT}"
+        allowed_hosts = []
+        if len(sys.argv) > 3:
+            allowed_hosts = [host for host in sys.argv[3].split(",") if host.strip()]
+        raise SystemExit(run_secure_browser(target_url, allowed_hosts))
+
+    if len(sys.argv) > 1 and sys.argv[1] == "--overlay":
+        from overlay_window import run_overlay
+
+        base_url = sys.argv[2] if len(sys.argv) > 2 else f"http://{HOST}:{PORT}"
+        token = sys.argv[3] if len(sys.argv) > 3 else ""
+        try:
+            x = int(sys.argv[4]) if len(sys.argv) > 4 else 40
+            y = int(sys.argv[5]) if len(sys.argv) > 5 else 40
+        except ValueError:
+            x, y = 40, 40
+        raise SystemExit(run_overlay(base_url, token, x, y))
+
     if not acquire_single_instance():
         if wait_for_service():
-            webbrowser.open(f"http://{HOST}:{PORT}")
+            settings = load_settings()
+            if settings.get("secure_browser_enabled"):
+                launch_secure_browser(secure_ui_url(read_ui_token()), settings.get("secure_browser_allowed_hosts"))
+            else:
+                webbrowser.open(f"http://{HOST}:{PORT}")
         return
 
     if service_is_running():
-        webbrowser.open(f"http://{HOST}:{PORT}")
+        settings = load_settings()
+        if settings.get("secure_browser_enabled"):
+            launch_secure_browser(secure_ui_url(read_ui_token()), settings.get("secure_browser_allowed_hosts"))
+        else:
+            webbrowser.open(f"http://{HOST}:{PORT}")
         return
 
     app = LaxyControlApp()

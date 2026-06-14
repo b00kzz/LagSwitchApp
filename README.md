@@ -31,6 +31,8 @@ If the service is already running, the launcher opens the Web UI only and does n
 - `netsh` restores or pauses the selected adapter/network path.
 - The Web UI can toggle, pause, restore, show overlay, close overlay, or exit the service.
 - If the app is already running, launching it again opens the existing Web UI instead of starting another service.
+- The Web UI opens in the built-in Secure Browser by default. Direct browser access is blocked with a local token while secure mode is enabled.
+- The Secure Browser only allows configured local hosts, hides menus/context actions, blocks common developer-tool shortcuts, and applies Windows content protection with `SetWindowDisplayAffinity`.
 - The executable requests Administrator permission at startup through its Windows manifest.
 - Web UI pause, restore, toggle, and exit actions ask for confirmation before running.
 - Important network actions are appended to `audit.log` for local review.
@@ -43,11 +45,19 @@ If the service is already running, the launcher opens the Web UI only and does n
 
 ## Overlay
 
-The mini overlay is optional. It is useful for normal windows and borderless/windowed fullscreen. Some fullscreen apps may cover overlays, so the global hotkey is the main control path.
+The mini overlay is optional and runs as a small PySide6 topmost window. It is useful for normal windows and borderless/windowed fullscreen. Some fullscreen apps may cover overlays, so the global hotkey is the main control path.
+
+## Secure Browser
+
+Secure mode is enabled by default through `secure_browser_enabled` in `config.json`. The default allowlist is `127.0.0.1` and `localhost` through `secure_browser_allowed_hosts`.
+
+`SetWindowDisplayAffinity` protects the Secure Browser window from standard Windows screen capture paths where supported. It does not stop external cameras, modified capture drivers, or users with direct access to the local token file.
 
 ## Files
 
 - `app.py`: main service, Web UI server, overlay, hotkeys
+- `secure_browser.py`: locked PySide6 WebEngine window and Windows content protection
+- `overlay_window.py`: PySide6 mini overlay window
 - `core/network.py`: adapter list/status/pause/restore
 - `core/hotkeys.py`: global hotkey binding
 - `core/settings.py`: JSON config
@@ -62,17 +72,17 @@ The mini overlay is optional. It is useful for normal windows and borderless/win
 ## Build and Release
 
 1. Build the single-file executable with `scripts\Build-Release.ps1`.
-2. The ready-to-use portable folder is created at `release\LaxyControl-Portable`.
+2. The ready-to-use single-file executable is copied to `release\LaxyControl.exe`.
 3. Sign `dist\LaxyControl.exe` with `scripts\Sign-Release.ps1` when you have a code signing certificate.
 4. Build `installer\LaxyControl.iss` with Inno Setup if you want an installer.
 5. Sign `dist\LaxyControlSetup.exe`.
-6. Publish the signed installer or the portable folder with its `SHA256SUMS.txt`.
+6. Publish the signed installer or the single-file executable.
 
 Code signing needs your own certificate and Windows SDK `signtool.exe`. Set `LAXYCONTROL_CERT_PATH` and optionally `LAXYCONTROL_CERT_PASSWORD`, or pass `-CertificatePath` and `-CertificatePassword` to `scripts\Sign-Release.ps1`.
 
 The standalone executable is `dist\LaxyControl.exe`. It has no terminal window, requests Administrator permission at startup, bundles the Web UI assets into one file, and opens the Web UI when started. Runtime files such as `config.json` and `audit.log` are created next to the executable so settings and audit history remain reviewable.
 
-For the simplest output, run `Build EXE.bat`. It builds the exe and prepares `release\LaxyControl-Portable` with the exe, docs, icon, config, and hashes in one place.
+For the simplest output, run `Build EXE.bat`. It builds the app and prepares `release\LaxyControl.exe` as the only file you need to run.
 
 ## Notes
 

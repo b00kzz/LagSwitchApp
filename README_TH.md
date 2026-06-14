@@ -61,17 +61,17 @@ Mini overlay เป็นตัวเลือกเสริม ใช้ได
 ## Build และ Release
 
 1. Build single-file executable ด้วย `scripts\Build-Release.ps1`
-2. โฟลเดอร์ portable ที่พร้อมใช้จะถูกสร้างที่ `release\LaxyControl-Portable`
+2. ไฟล์ exe แบบพร้อมใช้จะถูกคัดลอกไปที่ `release\LaxyControl.exe`
 3. Sign `dist\LaxyControl.exe` ด้วย `scripts\Sign-Release.ps1` เมื่อมี code signing certificate
 4. Build installer จาก `installer\LaxyControl.iss` ด้วย Inno Setup ถ้าต้องการ installer
 5. Sign `dist\LaxyControlSetup.exe`
-6. เผยแพร่ signed installer หรือโฟลเดอร์ portable พร้อม `SHA256SUMS.txt`
+6. เผยแพร่ signed installer หรือไฟล์ exe เดี่ยว
 
 การ code signing ต้องใช้ certificate ของคุณเองและ Windows SDK `signtool.exe` ตั้งค่า `LAXYCONTROL_CERT_PATH` และถ้าจำเป็น `LAXYCONTROL_CERT_PASSWORD` หรือส่งผ่าน `-CertificatePath` และ `-CertificatePassword` ให้ `scripts\Sign-Release.ps1`
 
 ไฟล์ exe แบบ standalone อยู่ที่ `dist\LaxyControl.exe` ไม่มี terminal window, ขอสิทธิ์ Administrator ตอนเริ่ม, bundle Web UI ไว้ในไฟล์เดียว และเปิด Web UI เมื่อเริ่มทำงาน ไฟล์ runtime เช่น `config.json` และ `audit.log` จะถูกสร้างข้าง exe เพื่อให้ settings และ audit history ตรวจสอบได้
 
-ถ้าต้องการขั้นตอนเดียว ให้รัน `Build EXE.bat` แล้วใช้โฟลเดอร์ `release\LaxyControl-Portable` ได้เลย ภายในจะมี exe, เอกสาร, icon, config และ hash พร้อมใช้
+ถ้าต้องการขั้นตอนเดียว ให้รัน `Build EXE.bat` แล้วใช้ไฟล์ `release\LaxyControl.exe` ได้เลย เป็นไฟล์เดียวที่พร้อมรัน
 
 ## หมายเหตุ
 

@@ -65,21 +65,11 @@ if not %errorlevel%==0 (
 )
 
 echo.
-echo Generating hashes...
-powershell -NoProfile -File "%SCRIPT_DIR%scripts\Generate-Hashes.ps1"
-if not %errorlevel%==0 (
-    echo.
-    echo Hash generation failed.
-    pause
-    exit /b 1
-)
-
-echo.
-echo Preparing portable folder...
+echo Preparing single-file release...
 powershell -NoProfile -File "%SCRIPT_DIR%scripts\Prepare-Portable.ps1"
 if not %errorlevel%==0 (
     echo.
-    echo Portable folder preparation failed.
+    echo Single-file release preparation failed.
     pause
     exit /b 1
 )
@@ -87,6 +77,6 @@ if not %errorlevel%==0 (
 echo.
 echo Done.
 echo EXE: "%SCRIPT_DIR%dist\LaxyControl.exe"
-echo Portable folder: "%SCRIPT_DIR%release\LaxyControl-Portable"
+echo Single-file release: "%SCRIPT_DIR%release\LaxyControl.exe"
 echo Runtime config and audit files will be created next to the EXE when it runs.
 pause

@@ -8,7 +8,7 @@ Use this checklist for a transparent release process.
 4. Build the installer with Inno Setup using `installer\LaxyControl.iss`.
 5. Sign `dist\LaxyControlSetup.exe`.
 6. Regenerate hashes with `scripts\Generate-Hashes.ps1`.
-7. Keep `README.md`, `SHA256SUMS.txt`, and the signed installer together.
+7. Keep `release\LaxyControl.exe` or the signed installer as the release artifact.
 
 ## Notes for review
 

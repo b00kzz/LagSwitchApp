@@ -3,6 +3,40 @@ let statusTimer = null;
 let currentLanguage = localStorage.getItem("laxyControlLanguage") || "th";
 
 const el = (id) => document.getElementById(id);
+const hotkeyOptions = [
+  "f6",
+  "f7",
+  "f8",
+  "f9",
+  "f10",
+  "f11",
+  "f12",
+  "ctrl+f6",
+  "ctrl+f7",
+  "ctrl+f8",
+  "ctrl+f9",
+  "ctrl+f10",
+  "alt+f6",
+  "alt+f7",
+  "alt+f8",
+  "alt+f9",
+  "alt+f10",
+  "shift+f6",
+  "shift+f7",
+  "shift+f8",
+  "shift+f9",
+  "shift+f10",
+  "ctrl+alt+f6",
+  "ctrl+alt+f7",
+  "ctrl+alt+f8",
+  "ctrl+alt+f9",
+  "ctrl+alt+f10",
+  "ctrl+shift+f8",
+  "alt+shift+f8",
+  "space",
+  "ctrl+space",
+  "alt+space",
+];
 const translations = {
   en: {
     subtitle: "Local network control service with a web test dashboard.",
@@ -130,6 +164,16 @@ function applyLanguage() {
   if (currentStatus) {
     renderStatus(currentStatus);
   }
+}
+
+function fillHotkeyOptions() {
+  const list = el("hotkeyOptions");
+  list.innerHTML = "";
+  hotkeyOptions.forEach((hotkey) => {
+    const option = document.createElement("option");
+    option.value = hotkey;
+    list.append(option);
+  });
 }
 
 async function api(path, options = {}) {
@@ -283,6 +327,7 @@ el("settingsForm").addEventListener("submit", async (event) => {
   await refreshStatus(true);
 });
 
+fillHotkeyOptions();
 applyLanguage();
 refreshStatus(true);
 statusTimer = setInterval(() => refreshStatus(false), 1500);

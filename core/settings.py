@@ -13,6 +13,8 @@ DEFAULT_SETTINGS = {
     "overlay_enabled": False,
     "overlay_x": 40,
     "overlay_y": 40,
+    "secure_browser_enabled": True,
+    "secure_browser_allowed_hosts": ["127.0.0.1", "localhost"],
 }
 
 
@@ -27,6 +29,15 @@ def normalize_settings(settings):
     normalized["open_ui_on_start"] = bool(normalized.get("open_ui_on_start"))
     normalized["show_notifications"] = bool(normalized.get("show_notifications"))
     normalized["overlay_enabled"] = bool(normalized.get("overlay_enabled"))
+    normalized["secure_browser_enabled"] = bool(normalized.get("secure_browser_enabled"))
+    allowed_hosts = normalized.get("secure_browser_allowed_hosts")
+    if not isinstance(allowed_hosts, list):
+        allowed_hosts = DEFAULT_SETTINGS["secure_browser_allowed_hosts"]
+    normalized["secure_browser_allowed_hosts"] = [
+        str(host).strip().lower()
+        for host in allowed_hosts
+        if str(host or "").strip()
+    ]
     normalized.pop("exit_hotkey", None)
 
     for key in ("overlay_x", "overlay_y"):

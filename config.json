@@ -6,5 +6,10 @@
   "show_notifications": true,
   "overlay_enabled": false,
   "overlay_x": 40,
-  "overlay_y": 40
+  "overlay_y": 40,
+  "secure_browser_enabled": true,
+  "secure_browser_allowed_hosts": [
+    "127.0.0.1",
+    "localhost"
+  ]
 }
