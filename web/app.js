@@ -37,38 +37,41 @@ const hotkeyOptions = [
   "ctrl+space",
   "alt+space",
 ];
+
 const translations = {
   en: {
-    subtitle: "Local network control service with a web test dashboard.",
+    subtitle: "Local network control",
     language: "Language",
     checking: "Checking...",
     service: "Service",
     networkState: "Network",
     hotkey: "Hotkey",
     adapter: "Adapter",
-    testControls: "Test Controls",
-    testControlsHelp: "These buttons use the selected adapter. Run as Administrator for real pause/restore actions.",
-    testPause: "Test Pause",
-    testRestore: "Test Restore",
-    testToggle: "Test Toggle",
-    showOverlay: "Show Overlay",
-    closeOverlay: "Close Overlay",
-    exitService: "Exit Service",
+    testControls: "Controls",
+    testControlsHelp: "Pause automatically restores after the time below.",
+    testPause: "Pause",
+    testRestore: "Restore",
+    testToggle: "Toggle",
+    showOverlay: "Overlay",
+    closeOverlay: "Hide",
+    exitService: "Exit",
     waitingStatus: "Waiting for status...",
     settings: "Settings",
-    settingsHelp: "Saved changes apply to the global hotkey immediately.",
+    settingsHelp: "Saved changes apply immediately.",
     globalHotkey: "Global Hotkey",
     mode: "Mode",
-    modeToggle: "Toggle: press once to pause, press again to restore",
-    modeHold: "Hold: hold to pause, release to restore",
+    modeToggle: "Toggle",
+    modeHold: "Hold",
     networkAdapter: "Network Adapter",
     customAdapter: "Custom Adapter Name",
     customAdapterPlaceholder: "Optional, if not listed",
+    restoreDelay: "Auto restore",
+    seconds: "sec",
     openUiOnStart: "Open Web UI on startup",
     showNotifications: "Show toast notifications",
-    overlayStartup: "Enable mini overlay on startup",
-    saveSettings: "Save Settings",
-    refreshAdapter: "Refresh Adapter",
+    overlayStartup: "Enable mini overlay",
+    saveSettings: "Save",
+    refreshAdapter: "Refresh",
     running: "Running",
     stopped: "Stopped",
     paused: "Paused",
@@ -88,40 +91,42 @@ const translations = {
     confirmShutdown: "Exit LaxyControl now?",
   },
   th: {
-    subtitle: "บริการควบคุมเครือข่ายในเครื่อง พร้อมหน้าเว็บสำหรับทดสอบและตั้งค่า",
+    subtitle: "ควบคุมเครือข่ายในเครื่อง",
     language: "ภาษา",
     checking: "กำลังตรวจสอบ...",
     service: "บริการ",
     networkState: "เครือข่าย",
     hotkey: "ปุ่มลัด",
     adapter: "อะแดปเตอร์",
-    testControls: "ปุ่มทดสอบ",
-    testControlsHelp: "ปุ่มเหล่านี้ใช้อะแดปเตอร์ที่เลือกไว้ ต้องรันแบบ Administrator เพื่อพัก/คืนค่าเครือข่ายจริง",
-    testPause: "ทดสอบพัก",
-    testRestore: "ทดสอบคืนค่า",
-    testToggle: "ทดสอบสลับ",
-    showOverlay: "แสดง Overlay",
-    closeOverlay: "ปิด Overlay",
-    exitService: "ออกจากโปรแกรม",
+    testControls: "ควบคุม",
+    testControlsHelp: "เมื่อพักเครือข่าย ระบบจะคืนค่าอัตโนมัติตามเวลาที่ตั้งไว้",
+    testPause: "พัก",
+    testRestore: "คืนค่า",
+    testToggle: "สลับ",
+    showOverlay: "Overlay",
+    closeOverlay: "ซ่อน",
+    exitService: "ออก",
     waitingStatus: "กำลังรอสถานะ...",
     settings: "ตั้งค่า",
-    settingsHelp: "บันทึกแล้วจะมีผลกับปุ่มลัดทันที",
+    settingsHelp: "บันทึกแล้วมีผลทันที",
     globalHotkey: "ปุ่มลัดหลัก",
     mode: "โหมด",
-    modeToggle: "สลับ: กดหนึ่งครั้งเพื่อพัก กดอีกครั้งเพื่อคืนค่า",
-    modeHold: "กดค้าง: กดค้างเพื่อพัก ปล่อยเพื่อคืนค่า",
+    modeToggle: "สลับ",
+    modeHold: "กดค้าง",
     networkAdapter: "อะแดปเตอร์เครือข่าย",
     customAdapter: "ชื่ออะแดปเตอร์เอง",
     customAdapterPlaceholder: "ใส่เองถ้าไม่มีในรายการ",
+    restoreDelay: "คืนค่าอัตโนมัติ",
+    seconds: "วินาที",
     openUiOnStart: "เปิด Web UI ตอนเริ่มโปรแกรม",
-    showNotifications: "แสดงการแจ้งเตือนแบบ toast",
-    overlayStartup: "เปิด mini overlay ตอนเริ่มโปรแกรม",
-    saveSettings: "บันทึกการตั้งค่า",
-    refreshAdapter: "รีเฟรชอะแดปเตอร์",
-    running: "กำลังทำงาน",
-    stopped: "หยุดแล้ว",
+    showNotifications: "แสดง toast notification",
+    overlayStartup: "เปิด mini overlay",
+    saveSettings: "บันทึก",
+    refreshAdapter: "รีเฟรช",
+    running: "ทำงาน",
+    stopped: "หยุด",
     paused: "พักอยู่",
-    readyState: "พร้อมใช้งาน",
+    readyState: "พร้อม",
     modeToggleShort: "สลับ",
     modeHoldShort: "กดค้าง",
     administrator: "Administrator",
@@ -144,10 +149,21 @@ function t(key) {
 }
 
 function modeLabel(mode) {
-  if (mode === "hold") {
-    return t("modeHoldShort");
+  return mode === "hold" ? t("modeHoldShort") : t("modeToggleShort");
+}
+
+function restoreDelayValue() {
+  const value = Number.parseFloat(el("restoreDelayQuick").value || el("restoreDelay").value || "3");
+  if (!Number.isFinite(value)) {
+    return 3;
   }
-  return t("modeToggleShort");
+  return Math.min(60, Math.max(0.2, value));
+}
+
+function syncRestoreInputs(value) {
+  const rounded = Number.parseFloat(value || 3).toFixed(1).replace(/\.0$/, "");
+  el("restoreDelay").value = rounded;
+  el("restoreDelayQuick").value = rounded;
 }
 
 function applyLanguage() {
@@ -163,6 +179,7 @@ function applyLanguage() {
 
   if (currentStatus) {
     renderStatus(currentStatus);
+    fillSettings(currentStatus);
   }
 }
 
@@ -201,6 +218,7 @@ function fillSettings(status) {
   el("openUiOnStart").checked = Boolean(settings.open_ui_on_start);
   el("showNotifications").checked = Boolean(settings.show_notifications);
   el("overlayEnabled").checked = Boolean(settings.overlay_enabled);
+  syncRestoreInputs(settings.restore_delay_seconds || status.max_pause_seconds || 3);
 
   const adapterSelect = el("adapter");
   const selected = settings.adapter || "";
@@ -235,7 +253,7 @@ function renderStatus(status) {
     : status.settings.adapter || t("notSelected");
 
   el("adminStatus").textContent = status.is_admin ? t("administrator") : t("notAdministrator");
-  el("adminStatus").className = `status-pill ${status.is_admin ? "ok" : "bad"}`;
+  el("adminStatus").className = status.is_admin ? "ok" : "bad";
 
   setResult(status.last_result || { ok: true, message: t("ready") });
 }
@@ -245,6 +263,47 @@ async function refreshStatus(fillForm = false) {
   renderStatus(status);
   if (fillForm) {
     fillSettings(status);
+  }
+}
+
+function collectSettingsPayload() {
+  const customAdapter = el("customAdapter").value.trim();
+  return {
+    hotkey: el("hotkey").value.trim(),
+    mode: el("mode").value,
+    adapter: customAdapter || el("adapter").value,
+    open_ui_on_start: el("openUiOnStart").checked,
+    show_notifications: el("showNotifications").checked,
+    overlay_enabled: el("overlayEnabled").checked,
+    restore_delay_seconds: restoreDelayValue(),
+  };
+}
+
+async function saveSettings(silent = false) {
+  const result = await api("/api/settings", {
+    method: "POST",
+    body: JSON.stringify(collectSettingsPayload()),
+  });
+  if (currentStatus) {
+    currentStatus.settings = result.settings;
+  }
+  syncRestoreInputs(result.settings.restore_delay_seconds);
+  if (!silent) {
+    setResult({ ok: true, message: t("settingsSaved") });
+  }
+  return result.settings;
+}
+
+async function persistQuickRestoreDelay() {
+  if (!currentStatus) {
+    return;
+  }
+
+  const current = Number.parseFloat(currentStatus.settings.restore_delay_seconds || currentStatus.max_pause_seconds || 3);
+  const next = restoreDelayValue();
+  syncRestoreInputs(next);
+  if (Math.abs(current - next) > 0.001) {
+    await saveSettings(true);
   }
 }
 
@@ -261,6 +320,9 @@ async function runAction(action) {
   }
 
   try {
+    if (action === "pause" || action === "toggle") {
+      await persistQuickRestoreDelay();
+    }
     const result = await api("/api/action", {
       method: "POST",
       body: JSON.stringify({ action }),
@@ -294,32 +356,27 @@ el("language").addEventListener("change", (event) => {
   currentLanguage = event.target.value;
   localStorage.setItem("laxyControlLanguage", currentLanguage);
   applyLanguage();
-  if (currentStatus) {
-    fillSettings(currentStatus);
-  }
+});
+
+el("restoreDelayQuick").addEventListener("input", () => {
+  el("restoreDelay").value = el("restoreDelayQuick").value;
+});
+
+el("restoreDelay").addEventListener("input", () => {
+  el("restoreDelayQuick").value = el("restoreDelay").value;
+});
+
+el("restoreDelayQuick").addEventListener("change", () => {
+  syncRestoreInputs(restoreDelayValue());
+  saveSettings(true).catch((error) => setResult({ ok: false, message: error.message }));
 });
 
 el("refreshButton").addEventListener("click", () => refreshStatus(true));
 
 el("settingsForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const customAdapter = el("customAdapter").value.trim();
-  const payload = {
-    hotkey: el("hotkey").value.trim(),
-    mode: el("mode").value,
-    adapter: customAdapter || el("adapter").value,
-    open_ui_on_start: el("openUiOnStart").checked,
-    show_notifications: el("showNotifications").checked,
-    overlay_enabled: el("overlayEnabled").checked,
-  };
-
   try {
-    const result = await api("/api/settings", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    setResult({ ok: true, message: t("settingsSaved") });
-    currentStatus.settings = result.settings;
+    await saveSettings(false);
   } catch (error) {
     setResult({ ok: false, message: error.message });
   }

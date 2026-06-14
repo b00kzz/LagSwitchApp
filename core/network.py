@@ -144,10 +144,6 @@ def adapter_rows():
     return rows
 
 
-def adapter_names():
-    return [row["name"] for row in adapter_rows()]
-
-
 def adapter_status(adapter_name):
     if not adapter_name:
         return None

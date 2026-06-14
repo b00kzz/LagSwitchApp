@@ -230,6 +230,12 @@ class LaxyControlApp:
     def selected_adapter(self):
         return self.settings.get("adapter", "").strip()
 
+    def restore_delay_seconds(self):
+        try:
+            return float(self.settings.get("restore_delay_seconds", MAX_PAUSE_SECONDS))
+        except (TypeError, ValueError):
+            return MAX_PAUSE_SECONDS
+
     def cancel_pause_timer(self):
         if self.pause_timer:
             self.pause_timer.cancel()
@@ -238,7 +244,7 @@ class LaxyControlApp:
     def schedule_pause_timeout(self):
         self.cancel_pause_timer()
         generation = self.pause_generation
-        timer = threading.Timer(MAX_PAUSE_SECONDS, self.restore_after_pause_timeout, args=(generation,))
+        timer = threading.Timer(self.restore_delay_seconds(), self.restore_after_pause_timeout, args=(generation,))
         timer.daemon = True
         self.pause_timer = timer
         timer.start()
@@ -250,10 +256,10 @@ class LaxyControlApp:
 
         self.write_audit(
             "pause_timeout",
-            seconds=MAX_PAUSE_SECONDS,
+            seconds=self.restore_delay_seconds(),
             adapter=self.selected_adapter(),
         )
-        self.restore_network(f"auto restore after {MAX_PAUSE_SECONDS:g}s limit")
+        self.restore_network(f"auto restore after {self.restore_delay_seconds():g}s limit")
 
     def pause_network(self, source="manual"):
         self.write_audit("action_requested", action="pause_network", source=source, adapter=self.selected_adapter())
@@ -293,6 +299,7 @@ class LaxyControlApp:
     def update_settings(self, data):
         with self.lock:
             updated = dict(self.settings)
+            old_restore_delay = self.restore_delay_seconds()
             for key in (
                 "hotkey",
                 "mode",
@@ -302,12 +309,17 @@ class LaxyControlApp:
                 "overlay_enabled",
                 "overlay_x",
                 "overlay_y",
+                "restore_delay_seconds",
             ):
                 if key in data:
                     updated[key] = data[key]
             self.settings = save_settings(updated)
+            restore_delay_changed = self.restore_delay_seconds() != old_restore_delay
+            network_paused = self.network_paused
 
         self.reload_hotkeys()
+        if restore_delay_changed and network_paused:
+            self.schedule_pause_timeout()
         if self.settings.get("overlay_enabled"):
             self.overlay.show()
         else:
@@ -325,7 +337,7 @@ class LaxyControlApp:
             "adapters": network.adapter_rows(),
             "selected_adapter_status": network.adapter_status(adapter),
             "network_paused": self.network_paused,
-            "max_pause_seconds": MAX_PAUSE_SECONDS,
+            "max_pause_seconds": self.restore_delay_seconds(),
             "hotkeys_running": self.hotkeys.running,
             "hotkey_backend": self.hotkeys.backend,
             "overlay_visible": self.overlay.visible,

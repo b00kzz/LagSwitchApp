@@ -13,6 +13,7 @@ DEFAULT_SETTINGS = {
     "overlay_enabled": False,
     "overlay_x": 40,
     "overlay_y": 40,
+    "restore_delay_seconds": 3.0,
     "secure_browser_enabled": True,
     "secure_browser_allowed_hosts": ["127.0.0.1", "localhost"],
 }
@@ -30,6 +31,11 @@ def normalize_settings(settings):
     normalized["show_notifications"] = bool(normalized.get("show_notifications"))
     normalized["overlay_enabled"] = bool(normalized.get("overlay_enabled"))
     normalized["secure_browser_enabled"] = bool(normalized.get("secure_browser_enabled"))
+    try:
+        restore_delay = float(normalized.get("restore_delay_seconds", DEFAULT_SETTINGS["restore_delay_seconds"]))
+    except (TypeError, ValueError):
+        restore_delay = DEFAULT_SETTINGS["restore_delay_seconds"]
+    normalized["restore_delay_seconds"] = min(60.0, max(0.2, restore_delay))
     allowed_hosts = normalized.get("secure_browser_allowed_hosts")
     if not isinstance(allowed_hosts, list):
         allowed_hosts = DEFAULT_SETTINGS["secure_browser_allowed_hosts"]
