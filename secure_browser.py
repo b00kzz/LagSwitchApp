@@ -5,6 +5,9 @@ from urllib.parse import urlparse
 
 
 APP_NAME = "LaxyControl Secure Browser"
+MUTEX_NAME = "Local\\LaxyControlSecureBrowser"
+ERROR_ALREADY_EXISTS = 183
+MUTEX_HANDLE = None
 WDA_MONITOR = 0x00000001
 WDA_EXCLUDEFROMCAPTURE = 0x00000011
 GWL_EXSTYLE = -20
@@ -69,7 +72,23 @@ def transparent_window_icon():
     return QIcon(pixmap)
 
 
+def acquire_single_instance():
+    if sys.platform != "win32":
+        return True
+
+    global MUTEX_HANDLE
+    kernel32 = ctypes.windll.kernel32
+    MUTEX_HANDLE = kernel32.CreateMutexW(None, False, MUTEX_NAME)
+    if not MUTEX_HANDLE:
+        return True
+
+    return kernel32.GetLastError() != ERROR_ALREADY_EXISTS
+
+
 def run_secure_browser(url, allowed_hosts):
+    if not acquire_single_instance():
+        return 0
+
     from PySide6.QtCore import Qt, QTimer, QUrl
     from PySide6.QtGui import QKeySequence, QShortcut
     from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox

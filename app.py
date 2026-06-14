@@ -64,7 +64,7 @@ def launch_secure_browser(url, allowed_hosts):
     else:
         command = [sys.executable, str(Path(__file__).resolve()), "--secure-browser", url, allowed]
 
-    subprocess.Popen(command, cwd=str(APP_DIR), close_fds=True)
+    return subprocess.Popen(command, cwd=str(APP_DIR), close_fds=True)
 
 
 def launch_overlay_process(token, x, y):
@@ -153,6 +153,7 @@ class LaxyControlApp:
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
         self.httpd = None
+        self.ui_process = None
         self.overlay = OverlayController(self)
         self.hotkeys = HotkeyManager(
             self.pause_network,
@@ -223,7 +224,13 @@ class LaxyControlApp:
     def open_ui(self):
         url = secure_ui_url(self.ui_token if self.settings.get("secure_browser_enabled") else "")
         if self.settings.get("secure_browser_enabled"):
-            launch_secure_browser(url, self.settings.get("secure_browser_allowed_hosts"))
+            with self.lock:
+                if self.ui_process and self.ui_process.poll() is None:
+                    return
+                self.ui_process = launch_secure_browser(
+                    url,
+                    self.settings.get("secure_browser_allowed_hosts"),
+                )
             return
         webbrowser.open(url)
 
@@ -356,6 +363,9 @@ class LaxyControlApp:
                 self.network_paused = False
         self.hotkeys.stop()
         self.overlay.stop()
+        if self.ui_process and self.ui_process.poll() is None:
+            self.ui_process.terminate()
+        self.ui_process = None
         if read_ui_token() == self.ui_token:
             try:
                 UI_TOKEN_FILE.unlink()
