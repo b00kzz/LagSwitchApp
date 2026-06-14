@@ -8,6 +8,8 @@ DEFAULT_SETTINGS = {
     "hotkey": "f8",
     "mode": "hold",
     "adapter": "",
+    "block_scope": "all",
+    "app_path": "",
     "open_ui_on_start": True,
     "show_notifications": True,
     "overlay_enabled": False,
@@ -27,6 +29,9 @@ def normalize_settings(settings):
     mode = str(normalized.get("mode") or "hold").strip().lower()
     normalized["mode"] = "hold" if mode in ("hold", "2") else "toggle"
     normalized["adapter"] = str(normalized.get("adapter") or "").strip()
+    block_scope = str(normalized.get("block_scope") or "all").strip().lower()
+    normalized["block_scope"] = "app" if block_scope in ("app", "per-app", "program") else "all"
+    normalized["app_path"] = str(normalized.get("app_path") or "").strip().strip('"')
     normalized["open_ui_on_start"] = bool(normalized.get("open_ui_on_start"))
     normalized["show_notifications"] = bool(normalized.get("show_notifications"))
     normalized["overlay_enabled"] = bool(normalized.get("overlay_enabled"))
@@ -35,7 +40,7 @@ def normalize_settings(settings):
         restore_delay = float(normalized.get("restore_delay_seconds", DEFAULT_SETTINGS["restore_delay_seconds"]))
     except (TypeError, ValueError):
         restore_delay = DEFAULT_SETTINGS["restore_delay_seconds"]
-    normalized["restore_delay_seconds"] = min(60.0, max(0.2, restore_delay))
+    normalized["restore_delay_seconds"] = min(60.0, max(1.5, restore_delay))
     allowed_hosts = normalized.get("secure_browser_allowed_hosts")
     if not isinstance(allowed_hosts, list):
         allowed_hosts = DEFAULT_SETTINGS["secure_browser_allowed_hosts"]

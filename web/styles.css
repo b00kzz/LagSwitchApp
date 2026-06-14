@@ -145,7 +145,8 @@ p {
 }
 
 .restore-input,
-.inline-input {
+.inline-input,
+.inline-select-action {
   display: grid;
   grid-template-columns: 1fr 96px auto;
   align-items: center;
@@ -166,6 +167,131 @@ p {
   font-size: 12px;
   font-style: normal;
   font-weight: 700;
+}
+
+.inline-select-action {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.inline-select-action button {
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.app-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.app-filters button {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.app-filters button:hover,
+.app-filters button.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #eff6ff;
+}
+
+.app-list {
+  display: grid;
+  gap: 7px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.target-warning,
+.app-warning {
+  padding: 9px 10px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius);
+  color: var(--danger);
+  background: var(--danger-soft);
+  font-weight: 700;
+}
+
+.app-option {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 7px;
+  border: 1px solid transparent;
+  color: var(--text);
+  background: var(--surface);
+  text-align: left;
+}
+
+.app-option:hover,
+.app-option.selected {
+  border-color: var(--accent);
+  background: #eff6ff;
+}
+
+.app-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--accent);
+  background: #ffffff;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.app-icon img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.app-text {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.app-text strong,
+.app-text em,
+.app-text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-text strong {
+  font-size: 13px;
+}
+
+.app-text em {
+  color: var(--accent);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.app-text small,
+.app-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.app-empty {
+  padding: 8px;
 }
 
 .actions,
@@ -318,7 +444,8 @@ select:focus {
   }
 
   .restore-input,
-  .inline-input {
+  .inline-input,
+  .inline-select-action {
     grid-template-columns: 1fr;
   }
 

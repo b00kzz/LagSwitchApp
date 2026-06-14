@@ -7,6 +7,12 @@ if (-not (Test-Path $Python)) {
 }
 
 Set-Location $Root
+
+$Running = Get-Process -Name "LaxyControl" -ErrorAction SilentlyContinue
+if ($Running) {
+    throw "LaxyControl.exe is still running. Close it from the Web UI Exit button or Task Manager, then run this build again."
+}
+
 Write-Host "Installing runtime requirements..."
 & $Python -m pip install -r requirements.txt
 

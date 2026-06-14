@@ -11,7 +11,7 @@ Web-first local network control for Windows. The app runs as a visible local ser
 3. Approve the Windows Administrator prompt
 4. Wait for packages to install
 5. The Web UI opens at `http://127.0.0.1:8787`
-6. Choose adapter, hotkey, and mode
+6. Choose block target, adapter or app, hotkey, and mode
 7. Click `Save Settings`
 
 ## Launchers
@@ -28,7 +28,7 @@ If the service is already running, the launcher opens the Web UI only and does n
 - The local Web UI is only for testing and configuration.
 - Global network pause/restore hotkeys keep working when another app is focused.
 - The service is stopped from the Web UI `Exit Service` button.
-- `netsh` restores or pauses the selected adapter/network path.
+- `netsh` restores or pauses the selected adapter/network path, or firewall rules for one selected app.
 - The Web UI can toggle, pause, restore, show overlay, close overlay, or exit the service.
 - If the app is already running, launching it again opens the existing Web UI instead of starting another service.
 - The Web UI opens in the built-in Secure Browser by default. Direct browser access is blocked with a local token while secure mode is enabled.
@@ -39,8 +39,8 @@ If the service is already running, the launcher opens the Web UI only and does n
 
 ## Modes
 
-- `Toggle`: press the hotkey once to pause the selected adapter/network path, press again to restore it.
-- `Hold`: hold the hotkey to pause the selected adapter/network path, release it to restore it.
+- `Toggle`: press the hotkey once to pause the selected network target, press again to restore it.
+- `Hold`: hold the hotkey to pause the selected network target, release it to restore it.
 - `Exit Service`: use the Web UI button to stop the local service.
 
 ## Overlay

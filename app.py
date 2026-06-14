@@ -33,6 +33,7 @@ APP_NAME = "LaxyControl"
 AUDIT_LOG = APP_DIR / "audit.log"
 UI_TOKEN_FILE = APP_DIR / ".secure-ui-token"
 MAX_PAUSE_SECONDS = 3.0
+MIN_ADAPTER_PAUSE_SECONDS = 1.5
 MUTEX_HANDLE = None
 
 
@@ -118,8 +119,16 @@ class OverlayController:
             self.show()
         return True
 
-    def show(self):
+    def is_visible(self):
         if self.process and self.process.poll() is None:
+            self.visible = True
+            return True
+        self.process = None
+        self.visible = False
+        return False
+
+    def show(self):
+        if self.is_visible():
             self.visible = True
             return
 
@@ -146,11 +155,14 @@ class LaxyControlApp:
         self.ui_token = secrets.token_urlsafe(32)
         write_ui_token(self.ui_token)
         self.network_paused = False
+        self.active_pause_app_path = ""
         self.pause_generation = 0
         self.pause_timer = None
         self.service_running = True
         self.last_result = {"ok": True, "message": "Service started."}
         self.lock = threading.RLock()
+        self.network_action_lock = threading.Lock()
+        self.pending_restore_requested = False
         self.stop_event = threading.Event()
         self.httpd = None
         self.overlay = OverlayController(self)
@@ -230,11 +242,40 @@ class LaxyControlApp:
     def selected_adapter(self):
         return self.settings.get("adapter", "").strip()
 
+    def selected_app_path(self):
+        if self.settings.get("block_scope") != "app":
+            return ""
+        return self.settings.get("app_path", "").strip()
+
     def restore_delay_seconds(self):
         try:
-            return float(self.settings.get("restore_delay_seconds", MAX_PAUSE_SECONDS))
+            seconds = float(self.settings.get("restore_delay_seconds", MAX_PAUSE_SECONDS))
         except (TypeError, ValueError):
-            return MAX_PAUSE_SECONDS
+            seconds = MAX_PAUSE_SECONDS
+
+        if not self.selected_app_path():
+            seconds = max(MIN_ADAPTER_PAUSE_SECONDS, seconds)
+        return seconds
+
+    def actual_network_paused(self, adapter_status=None):
+        app_path = self.selected_app_path()
+        if app_path:
+            return network.app_firewall_paused(app_path)
+
+        status = adapter_status if adapter_status is not None else network.adapter_status(self.selected_adapter())
+        return bool(status and status.get("admin_state", "").lower() == "disabled")
+
+    def sync_pause_state(self, actual_paused):
+        with self.lock:
+            if self.network_action_lock.locked():
+                return
+            if self.network_paused == actual_paused:
+                return
+            self.network_paused = actual_paused
+            if not actual_paused:
+                self.active_pause_app_path = ""
+                self.pause_generation += 1
+                self.cancel_pause_timer()
 
     def cancel_pause_timer(self):
         if self.pause_timer:
@@ -263,15 +304,33 @@ class LaxyControlApp:
 
     def pause_network(self, source="manual"):
         self.write_audit("action_requested", action="pause_network", source=source, adapter=self.selected_adapter())
+        if not self.network_action_lock.acquire(blocking=False):
+            self.set_last_result(False, "Network action already running. Wait for it to finish.", source=source)
+            return self.last_result
+
+        should_restore_after_pause = False
+        try:
+            return self._pause_network(source)
+        finally:
+            with self.lock:
+                should_restore_after_pause = self.pending_restore_requested
+                self.pending_restore_requested = False
+            self.network_action_lock.release()
+            if should_restore_after_pause:
+                self.restore_network(f"queued restore after {source}")
+
+    def _pause_network(self, source):
         with self.lock:
             if self.network_paused:
                 self.set_last_result(True, f"{APP_NAME} network already paused.", source=source)
                 return self.last_result
 
-        result = network.set_adapter_state(self.selected_adapter(), False)
+        app_path = self.selected_app_path()
+        result = network.set_adapter_state(self.selected_adapter(), False, app_path)
         with self.lock:
             if result["ok"]:
                 self.network_paused = True
+                self.active_pause_app_path = app_path
                 self.pause_generation += 1
                 self.schedule_pause_timeout()
         self.set_last_result(result["ok"], result["message"], source=source)
@@ -279,10 +338,25 @@ class LaxyControlApp:
 
     def restore_network(self, source="manual"):
         self.write_audit("action_requested", action="restore_network", source=source, adapter=self.selected_adapter())
-        result = network.set_adapter_state(self.selected_adapter(), True)
+        if not self.network_action_lock.acquire(blocking=False):
+            with self.lock:
+                self.pending_restore_requested = True
+            self.set_last_result(True, "Restore queued until the current network action finishes.", source=source)
+            return self.last_result
+
+        try:
+            return self._restore_network(source)
+        finally:
+            self.network_action_lock.release()
+
+    def _restore_network(self, source):
+        with self.lock:
+            app_path = self.active_pause_app_path if self.network_paused else self.selected_app_path()
+        result = network.set_adapter_state(self.selected_adapter(), True, app_path)
         with self.lock:
             if result["ok"]:
                 self.network_paused = False
+                self.active_pause_app_path = ""
                 self.pause_generation += 1
                 self.cancel_pause_timer()
         self.set_last_result(result["ok"], result["message"], source=source)
@@ -304,6 +378,8 @@ class LaxyControlApp:
                 "hotkey",
                 "mode",
                 "adapter",
+                "block_scope",
+                "app_path",
                 "open_ui_on_start",
                 "show_notifications",
                 "overlay_enabled",
@@ -330,17 +406,26 @@ class LaxyControlApp:
 
     def status(self):
         adapter = self.selected_adapter()
+        adapter_status = network.adapter_status(adapter)
+        actual_paused = self.actual_network_paused(adapter_status)
+        self.sync_pause_state(actual_paused)
+        with self.lock:
+            network_paused = self.network_paused
         return {
             "service_running": self.service_running,
             "is_admin": network.is_admin(),
             "settings": self.settings,
             "adapters": network.adapter_rows(),
-            "selected_adapter_status": network.adapter_status(adapter),
-            "network_paused": self.network_paused,
+            "selected_adapter_status": adapter_status,
+            "selected_app_path": self.selected_app_path(),
+            "local_firewall_rules_allowed": network.local_firewall_rules_allowed(),
+            "network_paused": network_paused,
+            "actual_network_paused": actual_paused,
+            "network_action_running": self.network_action_lock.locked(),
             "max_pause_seconds": self.restore_delay_seconds(),
             "hotkeys_running": self.hotkeys.running,
             "hotkey_backend": self.hotkeys.backend,
-            "overlay_visible": self.overlay.visible,
+            "overlay_visible": self.overlay.is_visible(),
             "last_result": self.last_result,
         }
 
@@ -351,9 +436,10 @@ class LaxyControlApp:
         with self.lock:
             active = self.network_paused
         if active:
-            network.set_firewall_paused(False)
+            network.set_adapter_state(self.selected_adapter(), True, self.active_pause_app_path)
             with self.lock:
                 self.network_paused = False
+                self.active_pause_app_path = ""
         self.hotkeys.stop()
         self.overlay.stop()
         if read_ui_token() == self.ui_token:
@@ -391,6 +477,15 @@ class LaxyControlApp:
                     content_type = f"{content_type}; charset=utf-8"
                 self.send_response(200)
                 self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(data)))
+                self.maybe_set_ui_cookie()
+                self.end_headers()
+                self.wfile.write(data)
+
+            def send_png(self, data):
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Cache-Control", "private, max-age=3600")
                 self.send_header("Content-Length", str(len(data)))
                 self.maybe_set_ui_cookie()
                 self.end_headers()
@@ -439,6 +534,19 @@ class LaxyControlApp:
                     self.send_json(app.status())
                     return
 
+                if self.path == "/api/apps":
+                    self.send_json({"apps": network.app_rows()})
+                    return
+
+                if self.parsed_path().path == "/api/app-icon":
+                    query = parse_qs(self.parsed_path().query)
+                    icon = network.app_icon_png(query.get("path", [""])[0])
+                    if not icon:
+                        self.send_error(404)
+                        return
+                    self.send_png(icon)
+                    return
+
                 if self.path == "/api/open-ui":
                     app.open_ui()
                     self.send_json({"ok": True})
@@ -465,11 +573,13 @@ class LaxyControlApp:
                     self.send_json({"ok": False, "message": "Invalid JSON."}, status=400)
                     return
 
-                if self.path == "/api/settings":
+                request_path = self.parsed_path().path
+
+                if request_path == "/api/settings":
                     self.send_json({"ok": True, "settings": app.update_settings(data)})
                     return
 
-                if self.path == "/api/action":
+                if request_path == "/api/action":
                     action = data.get("action")
                     if action == "restore":
                         self.send_json(app.restore_network("web"))

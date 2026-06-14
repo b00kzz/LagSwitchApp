@@ -56,7 +56,7 @@
 
       <label class="restore-input">
         <span data-i18n="restoreDelay">Auto restore</span>
-        <input id="restoreDelayQuick" type="number" min="0.2" max="60" step="0.1" inputmode="decimal">
+        <input id="restoreDelayQuick" type="number" min="1.5" max="60" step="0.1" inputmode="decimal">
         <em data-i18n="seconds">sec</em>
       </label>
 
@@ -99,9 +99,39 @@
         <div class="field">
           <label for="restoreDelay" data-i18n="restoreDelay">Auto restore</label>
           <div class="inline-input">
-            <input id="restoreDelay" name="restoreDelay" type="number" min="0.2" max="60" step="0.1" inputmode="decimal">
+            <input id="restoreDelay" name="restoreDelay" type="number" min="1.5" max="60" step="0.1" inputmode="decimal">
             <span data-i18n="seconds">sec</span>
           </div>
+        </div>
+
+        <div class="field">
+          <label for="blockScope" data-i18n="blockScope">Block Target</label>
+          <select id="blockScope" name="blockScope">
+            <option value="all" data-i18n="blockScopeAll">All network</option>
+            <option value="app" data-i18n="blockScopeApp">Selected app</option>
+          </select>
+          <p class="target-warning" id="adapterCutWarning" data-i18n="adapterCutWarning">All-network mode disables the selected adapter. Your own connection will drop briefly.</p>
+        </div>
+
+        <div class="field app-target">
+          <label for="appSearch" data-i18n="appSelect">Running App</label>
+          <p class="app-warning" id="appFirewallWarning" data-i18n="appFirewallUnavailable" hidden>Per-app blocking is unavailable because Windows policy disables local firewall rules.</p>
+          <div class="inline-select-action">
+            <input id="appSearch" type="text" autocomplete="off" data-i18n-placeholder="appSearchPlaceholder" placeholder="Search apps">
+            <button class="secondary" type="button" id="refreshAppsButton" data-i18n="refreshApps">Refresh Apps</button>
+          </div>
+          <div class="app-filters" id="appFilters">
+            <button type="button" class="selected" data-source-filter="all" data-i18n="appFilterAll">All</button>
+            <button type="button" data-source-filter="running" data-i18n="appFilterRunning">Running</button>
+            <button type="button" data-source-filter="shortcut" data-i18n="appFilterShortcuts">Shortcuts</button>
+            <button type="button" data-source-filter="installed" data-i18n="appFilterInstalled">Installed</button>
+          </div>
+          <div class="app-list" id="appList"></div>
+        </div>
+
+        <div class="field app-target">
+          <label for="appPath" data-i18n="appPath">App .exe Path</label>
+          <input id="appPath" name="appPath" type="text" placeholder="C:\Path\Game.exe" autocomplete="off" data-i18n-placeholder="appPathPlaceholder">
         </div>
 
         <div class="field">

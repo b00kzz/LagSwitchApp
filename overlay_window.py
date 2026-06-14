@@ -70,6 +70,7 @@ def run_overlay(base_url, token="", x=40, y=40):
             self.status.setEnabled(False)
             self.toggle = QPushButton("Toggle", self)
             self.toggle.clicked.connect(self.toggle_network)
+            self.busy = False
 
             layout = QVBoxLayout(self)
             layout.setContentsMargins(14, 12, 14, 12)
@@ -111,11 +112,36 @@ def run_overlay(base_url, token="", x=40, y=40):
                 self.status.setStyleSheet("color: #f87171;")
                 return
 
-            paused = bool(status.get("network_paused"))
-            self.status.setText(f"{APP_NAME} {'PAUSED' if paused else 'READY'}")
-            self.status.setStyleSheet(f"color: {'#dc2626' if paused else '#16a34a'};")
+            self.busy = bool(status.get("network_action_running"))
+            paused = bool(status.get("actual_network_paused", status.get("network_paused")))
+            last_result = status.get("last_result") or {}
+            ok = bool(last_result.get("ok", True))
+
+            if self.busy:
+                label = "BUSY"
+                color = "#f59e0b"
+            elif not ok:
+                label = "ERROR"
+                color = "#f87171"
+            elif paused:
+                label = "PAUSED"
+                color = "#dc2626"
+            else:
+                label = "READY"
+                color = "#16a34a"
+
+            self.status.setText(f"{APP_NAME} {label}")
+            self.status.setStyleSheet(f"color: {color};")
+            self.toggle.setEnabled(not self.busy)
 
         def toggle_network(self):
+            if self.busy:
+                return
+
+            self.busy = True
+            self.toggle.setEnabled(False)
+            self.status.setText(f"{APP_NAME} BUSY")
+            self.status.setStyleSheet("color: #f59e0b;")
             try:
                 api_request(base_url, "/api/action", token, {"action": "toggle"})
             except (OSError, urllib.error.URLError, json.JSONDecodeError):

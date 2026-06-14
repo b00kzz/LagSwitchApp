@@ -28,7 +28,7 @@
 - Web UI ใช้สำหรับทดสอบและตั้งค่า
 - ปุ่มลัด pause/restore ใช้งานได้แม้โฟกัสอยู่ที่โปรแกรมอื่น
 - หยุด service ได้จากปุ่ม `Exit Service` ใน Web UI
-- ใช้ `netsh` เพื่อพักหรือคืนค่า network path/adapter ที่เลือก
+- ใช้ `netsh` เพื่อพักหรือคืนค่า network path/adapter ที่เลือก หรือ rule ของแอพที่เลือกไว้
 - Web UI ใช้ toggle, pause, restore, show overlay หรือ close overlay ได้
 - ตัว exe ขอสิทธิ์ Administrator ตอนเริ่มผ่าน Windows manifest
 - คำสั่ง pause, restore, toggle และ exit ใน Web UI จะถามยืนยันก่อนทำงาน

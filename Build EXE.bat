@@ -35,6 +35,14 @@ exit /b 1
 echo Using Python: %PYTHON_CMD%
 echo.
 
+tasklist /FI "IMAGENAME eq LaxyControl.exe" 2>nul | find /I "LaxyControl.exe" >nul
+if %errorlevel%==0 (
+    echo LaxyControl.exe is still running.
+    echo Close it from the Web UI Exit button or Task Manager, then run this build again.
+    pause
+    exit /b 1
+)
+
 echo Installing runtime requirements...
 %PYTHON_CMD% -m pip install -r "%REQUIREMENTS%"
 if not %errorlevel%==0 (

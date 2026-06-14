@@ -11,6 +11,11 @@ if (-not (Test-Path $ExePath)) {
     throw "Build output not found: $ExePath"
 }
 
+$Running = Get-Process -Name "LaxyControl" -ErrorAction SilentlyContinue
+if ($Running) {
+    throw "LaxyControl.exe is still running. Close it from the Web UI Exit button or Task Manager, then prepare the release again."
+}
+
 New-Item -ItemType Directory -Force -Path $ReleaseRoot | Out-Null
 $ReleaseRootPath = (Resolve-Path -LiteralPath $ReleaseRoot).Path
 $RootPath = (Resolve-Path -LiteralPath $Root).Path

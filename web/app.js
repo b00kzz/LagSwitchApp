@@ -1,6 +1,8 @@
 let currentStatus = null;
 let statusTimer = null;
 let currentLanguage = localStorage.getItem("laxyControlLanguage") || "th";
+let appOptions = [];
+let appSourceFilter = "all";
 
 const el = (id) => document.getElementById(id);
 const hotkeyOptions = [
@@ -65,6 +67,21 @@ const translations = {
     networkAdapter: "Network Adapter",
     customAdapter: "Custom Adapter Name",
     customAdapterPlaceholder: "Optional, if not listed",
+    blockScope: "Block Target",
+    blockScopeAll: "All network",
+    blockScopeApp: "Selected app",
+    adapterCutWarning: "All-network mode disables the selected adapter. Your own connection will drop briefly.",
+    appSelect: "Running App",
+    refreshApps: "Refresh Apps",
+    appPath: "App .exe Path",
+    appPathPlaceholder: "Select a running app or paste an .exe path",
+    appSearchPlaceholder: "Search app name, window title, exe, or path",
+    appFirewallUnavailable: "Per-app blocking is unavailable because Windows policy disables local firewall rules.",
+    appFilterAll: "All",
+    appFilterRunning: "Running",
+    appFilterShortcuts: "Shortcuts",
+    appFilterInstalled: "Installed",
+    noApps: "No apps found. Try another search or paste the .exe path below.",
     restoreDelay: "Auto restore",
     seconds: "sec",
     openUiOnStart: "Open Web UI on startup",
@@ -116,6 +133,17 @@ const translations = {
     networkAdapter: "อะแดปเตอร์เครือข่าย",
     customAdapter: "ชื่ออะแดปเตอร์เอง",
     customAdapterPlaceholder: "ใส่เองถ้าไม่มีในรายการ",
+    blockScope: "เป้าหมายที่ตัด",
+    blockScopeAll: "ตัดทั้งเครื่อง",
+    blockScopeApp: "ตัดเฉพาะแอพ",
+    adapterCutWarning: "โหมดตัดทั้งเครื่องจะปิด adapter ที่เลือก เครื่องคุณจะหลุดเน็ตชั่วคราว",
+    appSelect: "แอพที่กำลังรัน",
+    refreshApps: "รีเฟรชแอพ",
+    appPath: "Path ไฟล์ .exe",
+    appPathPlaceholder: "เลือกแอพที่รันอยู่ หรือวาง path .exe",
+    appSearchPlaceholder: "ค้นหาจากชื่อแอพหรือ path",
+    appFirewallUnavailable: "ตัดเฉพาะแอพใช้งานไม่ได้ เพราะ Windows policy ปิด local firewall rules",
+    noApps: "ไม่พบแอพที่มี path",
     restoreDelay: "คืนค่าอัตโนมัติ",
     seconds: "วินาที",
     openUiOnStart: "เปิด Web UI ตอนเริ่มโปรแกรม",
@@ -157,7 +185,7 @@ function restoreDelayValue() {
   if (!Number.isFinite(value)) {
     return 3;
   }
-  return Math.min(60, Math.max(0.2, value));
+  return Math.min(60, Math.max(1.5, value));
 }
 
 function syncRestoreInputs(value) {
@@ -215,10 +243,14 @@ function fillSettings(status) {
   const settings = status.settings;
   el("hotkey").value = settings.hotkey || "f8";
   el("mode").value = settings.mode || "toggle";
+  el("blockScope").value = settings.block_scope || "all";
+  el("appPath").value = settings.app_path || "";
   el("openUiOnStart").checked = Boolean(settings.open_ui_on_start);
   el("showNotifications").checked = Boolean(settings.show_notifications);
   el("overlayEnabled").checked = Boolean(settings.overlay_enabled);
   syncRestoreInputs(settings.restore_delay_seconds || status.max_pause_seconds || 3);
+  updateTargetFields();
+  fillApps(settings.app_path || "");
 
   const adapterSelect = el("adapter");
   const selected = settings.adapter || "";
@@ -247,10 +279,14 @@ function renderStatus(status) {
   el("networkStateValue").className = networkPaused ? "bad" : "ok";
   el("hotkeyState").textContent = `${status.settings.hotkey} (${modeLabel(status.settings.mode)})`;
 
-  const adapterStatus = status.selected_adapter_status;
-  el("adapterState").textContent = adapterStatus
-    ? `${adapterStatus.name}: ${adapterStatus.admin_state}/${adapterStatus.state}`
-    : status.settings.adapter || t("notSelected");
+  if (status.settings.block_scope === "app") {
+    el("adapterState").textContent = status.selected_app_path || t("notSelected");
+  } else {
+    const adapterStatus = status.selected_adapter_status;
+    el("adapterState").textContent = adapterStatus
+      ? `${adapterStatus.name}: ${adapterStatus.admin_state}/${adapterStatus.state}`
+      : status.settings.adapter || t("notSelected");
+  }
 
   el("adminStatus").textContent = status.is_admin ? t("administrator") : t("notAdministrator");
   el("adminStatus").className = status.is_admin ? "ok" : "bad";
@@ -272,11 +308,87 @@ function collectSettingsPayload() {
     hotkey: el("hotkey").value.trim(),
     mode: el("mode").value,
     adapter: customAdapter || el("adapter").value,
+    block_scope: el("blockScope").value,
+    app_path: el("appPath").value.trim(),
     open_ui_on_start: el("openUiOnStart").checked,
     show_notifications: el("showNotifications").checked,
     overlay_enabled: el("overlayEnabled").checked,
     restore_delay_seconds: restoreDelayValue(),
   };
+}
+
+function updateTargetFields() {
+  const appMode = el("blockScope").value === "app";
+  const appUnavailable = appMode && currentStatus && !currentStatus.local_firewall_rules_allowed;
+  document.querySelectorAll(".app-target").forEach((node) => {
+    node.hidden = !appMode;
+  });
+  el("adapterCutWarning").hidden = appMode;
+  el("appFirewallWarning").hidden = !appUnavailable;
+}
+
+function fillApps(selectedPath = "") {
+  const appList = el("appList");
+  const query = el("appSearch").value.trim().toLowerCase();
+  const visibleApps = appOptions
+    .filter((app) => appSourceFilter === "all" || (app.source || "").includes(appSourceFilter))
+    .filter((app) => !query || (app.search || `${app.name} ${app.path}`).toLowerCase().includes(query))
+    .slice(0, 120);
+  appList.innerHTML = "";
+
+  if (!visibleApps.length) {
+    const empty = document.createElement("p");
+    empty.className = "app-empty";
+    empty.textContent = t("noApps");
+    appList.append(empty);
+    return;
+  }
+
+  for (const app of visibleApps) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `app-option ${app.path.toLowerCase() === selectedPath.toLowerCase() ? "selected" : ""}`;
+    button.dataset.path = app.path;
+    button.title = app.path;
+
+    const icon = document.createElement("span");
+    icon.className = "app-icon";
+    const image = document.createElement("img");
+    image.alt = "";
+    image.loading = "lazy";
+    image.src = `/api/app-icon?path=${encodeURIComponent(app.path)}`;
+    image.addEventListener("error", () => {
+      image.remove();
+      icon.textContent = (app.name || "?").slice(0, 1).toUpperCase();
+    });
+    icon.append(image);
+
+    const text = document.createElement("span");
+    text.className = "app-text";
+    const name = document.createElement("strong");
+    name.textContent = app.name;
+    const meta = document.createElement("em");
+    meta.textContent = [
+      app.window_title && app.window_title !== app.name ? app.window_title : "",
+      app.source || "",
+    ].filter(Boolean).join(" - ");
+    const path = document.createElement("small");
+    path.textContent = app.path;
+    text.append(name);
+    if (meta.textContent) {
+      text.append(meta);
+    }
+    text.append(path);
+
+    button.append(icon, text);
+    appList.append(button);
+  }
+}
+
+async function refreshApps(selectedPath = el("appPath").value.trim()) {
+  const result = await api("/api/apps");
+  appOptions = result.apps || [];
+  fillApps(selectedPath);
 }
 
 async function saveSettings(silent = false) {
@@ -366,12 +478,43 @@ el("restoreDelay").addEventListener("input", () => {
   el("restoreDelayQuick").value = el("restoreDelay").value;
 });
 
+el("blockScope").addEventListener("change", updateTargetFields);
+
+el("appSearch").addEventListener("input", () => {
+  fillApps(el("appPath").value.trim());
+});
+
+el("appFilters").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-source-filter]");
+  if (!button) {
+    return;
+  }
+
+  appSourceFilter = button.dataset.sourceFilter || "all";
+  el("appFilters").querySelectorAll("[data-source-filter]").forEach((node) => {
+    node.classList.toggle("selected", node === button);
+  });
+  fillApps(el("appPath").value.trim());
+});
+
+el("appList").addEventListener("click", (event) => {
+  const option = event.target.closest(".app-option");
+  if (!option) {
+    return;
+  }
+  el("appPath").value = option.dataset.path || "";
+  fillApps(el("appPath").value.trim());
+});
+
 el("restoreDelayQuick").addEventListener("change", () => {
   syncRestoreInputs(restoreDelayValue());
   saveSettings(true).catch((error) => setResult({ ok: false, message: error.message }));
 });
 
 el("refreshButton").addEventListener("click", () => refreshStatus(true));
+el("refreshAppsButton").addEventListener("click", () => {
+  refreshApps().catch((error) => setResult({ ok: false, message: error.message }));
+});
 
 el("settingsForm").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -386,5 +529,5 @@ el("settingsForm").addEventListener("submit", async (event) => {
 
 fillHotkeyOptions();
 applyLanguage();
-refreshStatus(true);
+refreshApps().catch(() => undefined).finally(() => refreshStatus(true));
 statusTimer = setInterval(() => refreshStatus(false), 1500);
